@@ -19,55 +19,51 @@ import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import fully_connected
 
 from neurolib.models.model import Unsupervised
-from neurolib.models.trainer import LLTrainer
+from neurolib.models.trainer import MSETrainer
 from neurolib.utils.graphs import get_session
 
 
 class DeterministicAE1D(Unsupervised):
   """
   """
-  def __init__(self, Y, zdim, t_init=None, specs=None, trainer=LLTrainer, lr=1e-5):
+  def __init__(self, Y, zdim, t_init=None, specs=None, trainer=MSETrainer, lr=1e-5,
+               method='adam'):
     """
     TODO: Implement batch size
+    TODO: Document specs
+    specs.keys() = ['in_nl', 'out_nl', 'num_in_layers', 'num_out_layers', 'in_nodes_list',
+    'out_nodes_list']
     """
-    super().__init__(Y=Y)
-    
-    self.zdim = zdim
-    with tf.variable_scope('DetAE', reuse=tf.AUTO_REUSE):
-      if t_init is not None:
-        self._initialize_from_tensors(t_init)
-      else:
-        if specs is not None:
-          self._initialize_from_specs(specs)
-        else:
-          self.Yprime, self.Z = self._define_default()
+    self.zdim = zdim    
+    super().__init__(Y=Y, t_init, specs)
+
+    if not self.is_initialized:
+      self.Yprime, self.Z = self._define_default()
       
-      self.trainer = trainer = trainer(lr)
-      self.train_op, self.loss, self.grads = trainer.build_cost_grads(Y, self.Yprime)
-      
-      self.Yfake = self._make_fake()
+    self.trainer = trainer = trainer(lr=lr, method=method)
+    self.train_op, self.loss, self.grads = trainer.build_cost_grads(Y, self.Yprime)
         
-  def _generate_out(self, Z):
+  def _build_out_default(self, Z):
     """
     """
     ydim  = self.ydim
-    full_out_1 = fully_connected(Z, 64)
-    full_out_2 = fully_connected(full_out_1, 128)
-    Yprime = fully_connected(full_out_2, ydim)
-    
+    with tf.variable_scope('DetAE', reuse=tf.AUTO_REUSE):
+      full_out_1 = fully_connected(Z, 64)
+      full_out_2 = fully_connected(full_out_1, 128)
+      Yprime = fully_connected(full_out_2, ydim)
     return Yprime
   
-  def _define_default(self):
+  def _build_default(self):
     """
     """
     Y = self.Y
     zdim = self.zdim
-    
-    full_in_1 = fully_connected(Y, 128)
-    full_in_2 = fully_connected(full_in_1, 64)
-    Z = fully_connected(full_in_2, zdim)
+    with tf.variable_scope('DetAE', reuse=tf.AUTO_REUSE):
+      full_in_1 = fully_connected(Y, 128)
+      full_in_2 = fully_connected(full_in_1, 64)
+      Z = fully_connected(full_in_2, zdim)
 
-    Yprime = self._generate_out(Z)    
+    Yprime = self._build_out_default(Z)    
     return Yprime, Z
   
   def _initialized_from_specs(self):
@@ -77,25 +73,35 @@ class DeterministicAE1D(Unsupervised):
   
   def _initialize_from_tensors(self):
     """
+    TODO: Add the scope here to all variables
     """
-    
-  def _make_fake(self, specs=None, num_samples=1000):
+    pass
+  
+  def _build_fake(self, t_init_gen=None, specs=None, nsamps=100):
     """
     TODO: create a function for the variables initializer.
     TODO: num_samples has to be an argument of generate!
     """
-    if specs is not None:
+    if t_init_gen is not None:
+      pass
+    elif specs is not None:
       pass
     else:
-      Z = tf.get_variable('Z', initializer=np.random.randn(num_samples, self.zdim))
-    return self._generate_out(Z)
+      Z = tf.get_variable('Z', initializer=np.random.randn(nsamps, self.zdim))
+      return self._build_out_default(Z)
       
-  def generate(self):
+  def _generate_out(self):
     """
     """
+    pass
+  
+  def generate(self, t_init_gen=None, specs=None, nsamps=100):
+    """
+    """
+    Yfake = self._build_fake(t_init_gen, specs, nsamps=nsamps)
     sess = get_session()
     sess.run(tf.global_variables_initializer())
-    return sess.run(self.Yfake)
+    return sess.run(Yfake)
       
   def update(self, ytrain):
     """
@@ -111,3 +117,27 @@ class DeterministicAE1D(Unsupervised):
     for _ in range(num_epochs):
       loss = self.update(ytrain)
       print(loss)
+
+
+class BayesianAE1D(Unsupervised):
+  """
+  """
+  def __init__(self, Y, zdim, t_init=None, specs=None, trainer=MSETrainer, lr=1e-5,
+               method='adam'):
+    """
+    TODO: Implement batch size
+    """
+    super().__init__(Y=Y)
+    
+    self.zdim = zdim
+    if not self.is_initialized:
+      self.Yprime, self.Z = self._define_default()
+      
+    self.trainer = trainer = trainer(lr=lr, method=method)
+    self.train_op, self.loss, self.grads = trainer.build_cost_grads(Y, self.Yprime)
+    
+    self.Yfake = self._build_fake()
+      
+      
+  
+  

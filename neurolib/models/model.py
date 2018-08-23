@@ -18,16 +18,37 @@
 class Unsupervised():
   """
   """
-  def __init__(self, Y):
+  def __init__(self, Y, t_init=None, specs=None):
     """
     """
     self.Y = Y
     self.ydim = int(Y.shape[1])
+
+    if t_init is not None:
+      self._initialize_from_tensors(t_init)
+      self.is_initialized = True
+    elif specs is not None:
+      self._initialize_from_specs(specs)
+      self.is_initialized = True
+    else:
+      self.is_initialized = False
     
+  def _initialize_from_tensors(self):
+    """
+    """
+    raise NotImplementedError("")
+
+  def _initialize_from_specs(self):
+    """
+    """
+    raise NotImplementedError("")
+
   def update(self):
     """
+    TODO: Fill
     """
-    
+    raise NotImplementedError("")
+  
   def train(self):
     """
     """

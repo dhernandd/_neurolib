@@ -14,37 +14,66 @@
 #
 # ==============================================================================
 import tensorflow as tf
+from tensorflow.train import AdamOptimizer, AdagradOptimizer, MomentumOptimizer, GradientDescentOptimizer
 
 class Trainer():
   """
   """
-  def __init__(self):
+  opt_dict = {'adam' : AdamOptimizer, 'adagrad' : AdagradOptimizer,
+              'momentum' : MomentumOptimizer, 'gd' : GradientDescentOptimizer}
+  
+  def __init__(self, lr, method):
     """
     """
-    pass
+    self.lr = lr
+    self.optimizer = self.opt_dict[method]
+    
+  def build_cost_grads(self):
+    """
+    """
+    raise NotImplementedError("")
 
 
-class LLTrainer(Trainer):
+class MSETrainer(Trainer):
   """
   """
-  def __init__(self, lr, **kwargs):
+  def __init__(self, lr, method='adam', **kwargs):
     """
     """
-    self.lr = lr 
+    super(MSETrainer, self).__init__(lr, method)
+ 
   
   def build_cost_grads(self, Y, Yprime):
     """
     """
     Nsamps = Y.get_shape().as_list()[0]
     cost = tf.reduce_sum(Y*Yprime)/Nsamps
-    opt = tf.train.AdamOptimizer(self.lr, beta1=0.9, beta2=0.999, epsilon=1e-8)
+    opt = self.optimizer(lr=self.lr)
     self.train_step = tf.get_variable("global_step", [], tf.int64,
                                       tf.zeros_initializer(),
                                       trainable=False)
-    train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
+    self.train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                         scope=tf.get_variable_scope().name)
-    gradsvars = opt.compute_gradients(cost, train_vars)
+    print('Scope', tf.get_variable_scope().name)
+    for i in range(len(self.train_vars)):
+        shape = self.train_vars[i].get_shape().as_list()
+        print("    ", i, self.train_vars[i].name, shape)
+
+    gradsvars = opt.compute_gradients(cost, self.train_vars)
     train_op = opt.apply_gradients(gradsvars, global_step=self.train_step,
                                         name='train1_op')
 
     return train_op, cost, gradsvars
+  
+
+class LLTrainer(Trainer):
+  """
+  """
+  def __init__(self, lr, method='adam', **kwargs):
+    """
+    """
+    super(MSETrainer, self).__init__(lr, method)
+
+  def build_cost_grads(self, Y, Yprime):
+    """
+    """

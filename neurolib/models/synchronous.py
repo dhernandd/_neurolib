@@ -144,3 +144,9 @@ if __name__ == '__main__':
   model = DeterministicAE1D(Y, 2)
   ytrain = model.generate()
   print(ytrain[:5])
+  
+  model = DeterministicAE1D(1)
+  Ysamps = model.generate()
+  print(Ysamps[:10])
+  
+  model.train(ytrain=Ysamps)

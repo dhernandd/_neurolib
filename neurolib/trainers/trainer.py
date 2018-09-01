@@ -30,7 +30,12 @@ class Trainer():
     """
     self.train_specs = train_specs
     
-  def build_cost_grads(self):
+  def update(self):
+    """
+    """
+    raise NotImplementedError("")
+
+  def train(self):
     """
     """
     raise NotImplementedError("")

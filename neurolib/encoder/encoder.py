@@ -35,7 +35,7 @@ class EncoderFactory():
     if isinstance(specs, dict):
       encoder = Encoder(ipt, specs, out_name)
     else:
-      # TODO: Add other possible ways of passing specs?
+      # TODO: Add other possible ways of passing specs!
       pass
     return encoder
     
@@ -54,6 +54,7 @@ class Encoder():
     self.specs = specs
     
     self.out = self.build_encoder_graph()
+    
     # TODO: This way of creating samples is a quick fix. Make it flexible
     # (arbitrary rank tensors, etc)
     sample_in = tf.placeholder(tf.float32, shape=[None, specs['ipt_dim']],

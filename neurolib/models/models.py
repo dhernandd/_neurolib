@@ -24,29 +24,24 @@ class Model():
       """
       pass
   
-  def build(self):
+  def _build(self):
     """
-    """
-    pass
-    
-  def update(self):
-    """
-    TODO: Fill
+    TODO: Fill the exception
     """
     raise NotImplementedError("")
-
-
+    
   def train(self):
     """
+    TODO: Fill the exception
     """
-    pass
-    
-    
-class Encoder():
-  """
-  """
-  pass
-
+    raise NotImplementedError("")
+  
+  def sample(self):
+    """
+    TODO: Fill the exception
+    """
+    raise NotImplementedError("")
+  
 
 class Unsupervised():
   """

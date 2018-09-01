@@ -61,7 +61,7 @@ class BasicAE(Model):
     # TODO: There is a design problem here if say, we want to work with 2
     # different models of this class. One possibility is to embed all this in a
     # Singleton class that handles things such as providing the right scope for
-    # each model. This shouldn't be hard to implement.
+    # each model. This shouldn't be too hard to implement.
     self.main_scope = 'BasicAE'
     
     # Build the model
@@ -168,3 +168,27 @@ class BasicAE(Model):
 
     return enc1_default_specs, enc2_default_specs
     
+    
+    
+class BayesianAE(Model):
+  """
+  For lack of a better name...
+  """
+  def __init__(self, ydim, xdim, specs):
+    """
+    Read the commetns for the BasicAE class 
+    """
+    self.ydim = ydim
+    self.xdim = xdim
+    super(BayesianAE, self).__init__()
+    self.specs = specs
+  
+    self.main_scope = 'BasicAE'
+    
+    # Build the model
+    self._build()
+
+  def _build(self):
+    """
+    """
+    pass

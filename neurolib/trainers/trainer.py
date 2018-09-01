@@ -14,20 +14,21 @@
 #
 # ==============================================================================
 import tensorflow as tf
-from tensorflow.train import (AdamOptimizer, AdagradOptimizer, 
-                              MomentumOptimizer, GradientDescentOptimizer)
+
+from neurolib.utils.graphs import get_session
 
 class Trainer():
   """
   """
-  opt_dict = {'adam' : AdamOptimizer, 'adagrad' : AdagradOptimizer,
-              'momentum' : MomentumOptimizer, 'gd' : GradientDescentOptimizer}
+  opt_dict = {'adam' : tf.train.AdamOptimizer,
+              'adagrad' : tf.train.AdagradOptimizer,
+              'momentum' : tf.train.MomentumOptimizer,
+              'gd' : tf.train.GradientDescentOptimizer}
   
-  def __init__(self, lr, method):
+  def __init__(self, train_specs):
     """
     """
-    self.lr = lr
-    self.optimizer = self.opt_dict[method]
+    self.train_specs = train_specs
     
   def build_cost_grads(self):
     """
@@ -35,47 +36,48 @@ class Trainer():
     raise NotImplementedError("")
 
 
-class MSETrainer(Trainer):
+class GDTrainer(Trainer):
   """
   """
-  def __init__(self, lr, method='adam', **kwargs):
+  def __init__(self, cost, train_specs, node_names):
     """
     """
-    super(MSETrainer, self).__init__(lr, method)
- 
-  
-  def build_cost_grads(self, Y, Yprime):
-    """
-    """
-    Nsamps = Y.get_shape().as_list()[0]
-    cost = tf.reduce_sum(Y*Yprime)/Nsamps
-    opt = self.optimizer(learning_rate=self.lr)
+    super(GDTrainer, self).__init__(train_specs)
+    self.node_names = node_names
+    self.cost = cost
+    
+    self.lr = lr = train_specs['lr']
+    optimizer_class = self.opt_dict[train_specs['optimizer']]
+    opt = optimizer_class(lr)
     self.train_step = tf.get_variable("global_step", [], tf.int64,
                                       tf.zeros_initializer(),
                                       trainable=False)
 
     self.train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                         scope=tf.get_variable_scope().name)
-    print('Scope', tf.get_variable_scope().name)
-    for i in range(len(self.train_vars)):
-        shape = self.train_vars[i].get_shape().as_list()
-        print("    ", i, self.train_vars[i].name, shape)
 
     gradsvars = opt.compute_gradients(cost, self.train_vars)
-    train_op = opt.apply_gradients(gradsvars, global_step=self.train_step,
+    self.train_op = opt.apply_gradients(gradsvars, global_step=self.train_step,
                                         name='train1_op')
 
-    return train_op, cost, gradsvars
+  def update(self, ytrain):
+    """
+    TODO: construct the feed_dict
+    """
+    sess = get_session()
+    _, cost = sess.run([self.train_op, self.cost],
+                       feed_dict={self.node_names[0] : ytrain})
+    return cost
   
-
-class LLTrainer(Trainer):
-  """
-  """
-  def __init__(self, lr, method='adam', **kwargs):
+  def train(self, ytrain, num_epochs=5, yvalid=None):
     """
     """
-    super(MSETrainer, self).__init__(lr, method)
-
-  def build_cost_grads(self, Y, Yprime):
-    """
-    """
+    nsamps = len(ytrain)
+    sess = get_session()
+    sess.run(tf.global_variables_initializer())
+    for _ in range(num_epochs):
+      for i in range(nsamps):
+        loss = self.update(ytrain[i:i+1])
+      print(loss)
+      
+    sess.close()

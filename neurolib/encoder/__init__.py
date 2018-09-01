@@ -13,22 +13,3 @@
 # limitations under the License.
 #
 # ==============================================================================
-
-from neurolib.models.models import Model
-
-class BasicAEC(Model):
-  """
-  """
-  def __init__(self):
-    """
-    """
-    super(BasicAEC, self).__init__()
-    
-  def build(self):
-    """
-    """
-    
-    
-  def train(self):
-    """
-    """

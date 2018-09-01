@@ -26,3 +26,5 @@ def variable_in_cpu(name, shape, initializer, collections=None):
     return var
 
 
+def make_var_name(scope, name):
+  return scope + '/' + name + ':0'

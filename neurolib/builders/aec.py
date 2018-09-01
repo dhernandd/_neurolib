@@ -24,4 +24,13 @@ class AECBuilder(StaticModelBuilder):
     """
     super(AECBuilder, self).__init__()
     
-  
+  def build(self, specs):
+    """
+    TODO: Deal with user-provided specs
+    """
+    if 'graph_directive' not in specs:
+      pass
+    else:
+      pass
+    
+    return

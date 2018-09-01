@@ -24,9 +24,9 @@ class Model(abc.ABC):
   """
   def __init__(self):
     """
-    TODO: Should I start a session here? This presents some troubles, at least
-    with this implementation of get_session which I am beginning to suspect it
-    is not going to cut it for our purposes. The sessions needs to be
+    TODO: Should I start a session here? This presents some troubles right now,
+    at least with this implementation of get_session which I am beginning to
+    suspect it is not going to cut it for our purposes. The sessions needs to be
     micromanaged...
     
     TODO: I also want to manually manage the graphs for when people want to run
@@ -35,7 +35,6 @@ class Model(abc.ABC):
 #     sess = get_session()
     pass
 
-  
   def _build(self):
     """
     TODO: Fill the exception

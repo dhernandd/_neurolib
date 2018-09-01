@@ -45,8 +45,9 @@ class Encoder():
   """
   def __init__(self, ipt, specs, out_name):
     """
-    TODO: The user should be able to pass a tensorflow graph. In that case,
-    Encoder should act as a simple wrapper that returns the input and the output.
+    TODO: The user should be able to pass a tensorflow graph directly. In that
+    case, Encoder should act as a simple wrapper that returns the input and the
+    output.
     """
     self.ipt = ipt
     ipt_name = ipt.name.split('/')[-1][:-2] 

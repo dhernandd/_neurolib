@@ -14,11 +14,16 @@
 #
 # ==============================================================================
 import tensorflow as tf
+import abc
 
 from neurolib.utils.graphs import get_session
 
-class Trainer():
+class Trainer(abc.ABC):
   """
+  TODO: Implement training with tensorflow Queues. This is IMPORTANT! Get rid of
+  the feed_dict!
+  
+  TODO: Put the abc functionality to use
   """
   opt_dict = {'adam' : tf.train.AdamOptimizer,
               'adagrad' : tf.train.AdagradOptimizer,
@@ -43,6 +48,8 @@ class Trainer():
 
 class GDTrainer(Trainer):
   """
+  TODO: This class will probably move to a file of its own. We probably want to
+  leave this file only for the abstract class.
   """
   def __init__(self, cost, train_specs, node_names):
     """
@@ -67,7 +74,8 @@ class GDTrainer(Trainer):
 
   def update(self, ytrain):
     """
-    TODO: construct the feed_dict
+    TODO: Get rid of the feed_dict in favor of the Queues! Add multithreading
+    capabilities
     """
     sess = get_session()
     _, cost = sess.run([self.train_op, self.cost],

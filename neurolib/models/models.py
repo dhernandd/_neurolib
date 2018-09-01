@@ -13,16 +13,28 @@
 # limitations under the License.
 #
 # ==============================================================================
-from builtins import isinstance
+import abc
 
+from neurolib.utils.graphs import get_session
 
-class Model():
+# WE REFUSE TO SUPPORT PYTHON 2! :D
+class Model(abc.ABC):
   """
+  TODO: Put the abc functionality to use.
   """
   def __init__(self):
-      """
-      """
-      pass
+    """
+    TODO: Should I start a session here? This presents some troubles, at least
+    with this implementation of get_session which I am beginning to suspect it
+    is not going to cut it for our purposes. The sessions needs to be
+    micromanaged...
+    
+    TODO: I also want to manually manage the graphs for when people want to run
+    two models and compare for example.
+    """
+#     sess = get_session()
+    pass
+
   
   def _build(self):
     """
@@ -30,6 +42,7 @@ class Model():
     """
     raise NotImplementedError("")
     
+  @abc.abstractmethod
   def train(self):
     """
     TODO: Fill the exception
@@ -38,13 +51,22 @@ class Model():
   
   def sample(self):
     """
+    TODO: Think about what is meant by sample. Only Generative Models should
+    have sampling capabilities so this function probably shouldnt be here since
+    I am defining a `Model` as the most general composition of Encoders. sample
+    in fact seems to be a method of the abstract Encoder class, not of the
+    Model, huh?
+    
     TODO: Fill the exception
     """
     raise NotImplementedError("")
   
 
+#### DUMP DUMP DUMP (For now) ####
 class Unsupervised():
   """
+  TODO: This is for the moment an experiment on the hierarchy below Model.
+  Nothing serious here right now.
   """
   def __init__(self, Y, t_init=None, specs=None):
     """
@@ -95,9 +117,6 @@ class Unsupervised():
     """
     if inputs is None: inputs = self.Y
     
-    
-  
-  
   def train(self):
     """
     """

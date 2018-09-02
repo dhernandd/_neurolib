@@ -22,7 +22,7 @@ class Model(abc.ABC):
   """
   TODO: Put the abc functionality to use.
   """
-  def __init__(self):
+  def __init__(self, specs):
     """
     TODO: Should I start a session here? This presents some troubles right now,
     at least with this implementation of get_session which I am beginning to
@@ -33,13 +33,22 @@ class Model(abc.ABC):
     two models and compare for example.
     """
 #     sess = get_session()
-    pass
+    self.specs = specs
+    self.num_factors = num_factors = specs['num_factors']
+    self.linearized_factor_ids = self._linearize_encoder_graph(num_factors)
 
   def _build(self):
     """
     TODO: Fill the exception
     """
     raise NotImplementedError("")
+    
+  @staticmethod
+  def _linearize_encoder_graph(num_factors):
+    """
+    TODO: A much more sophisticated function is required here.
+    """
+    return [str(i) for i in range(num_factors)]
     
   @abc.abstractmethod
   def train(self):

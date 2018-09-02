@@ -18,7 +18,7 @@ import tensorflow as tf
 
 from neurolib.models.models import Model
 # from neurolib.builders.aec import AECBuilder
-from neurolib.encoder.encoder import EncoderFactory
+from neurolib.encoder.encoder import EncoderFactory, DeterministicEncoder
 from neurolib.trainers.trainer import GDTrainer
 from neurolib.utils.graphs import get_session
 from neurolib.utils.utils import make_var_name
@@ -51,10 +51,10 @@ class BasicAE(Model):
     # TODO: The idea here is that there are some hyperparameters that the user
     # MUST provide. Those should not be in the dictionary of specs, rather the
     # user should be forced to provide them on initialization.
+    self._init_specs(specs)
+    super(BasicAE, self).__init__(specs)
     self.ydim = ydim
     self.xdim = xdim
-    super(BasicAE, self).__init__()
-    self.specs = specs
     
     # The main scope for this model. 
     
@@ -66,15 +66,19 @@ class BasicAE(Model):
     
     # Build the model
     self._build()
+  
+  def _init_specs(self, specs):
+    """
+    """
+    specs['num_factors'] = 3
     
   def _build(self):
     """
     TODO: Implement different options for Trainer
     """
     specs = self.specs
-    ydim = self.ydim
     b_size = specs['b_size'] if 'b_size' in self.specs else 1
-    
+        
     # These line builds the specs that will be used to construct the Encoders.
     # Each Encoder object is an abstraction of the sequence:
     #
@@ -88,12 +92,16 @@ class BasicAE(Model):
     # GDTrainer which takes a cost and some specs.
     train_specs = {'lr' : 1e-6, 'optimizer' : 'adam'}
     
+    # TODO: Encapsulate from here in a function _stack_encoders() that puts the
+    # bricks toegether
     enc_fac = EncoderFactory()
     with tf.variable_scope(self.main_scope, reuse=tf.AUTO_REUSE):
-      self.Y = tf.placeholder(dtype=tf.float32, shape=[b_size, ydim],
-                              name='Input')
-      self.enc_H1 = enc_fac(self.Y, enc1_specs, out_name='H1')
-      self.enc_Yprime = enc_fac(self.enc_H1, enc2_specs, out_name='Yprime')
+      self.Y = tf.placeholder(dtype=tf.float32, shape=[b_size, self.ydim],
+                              name='Fac'+self.linearized_factor_ids.pop(0))
+      self.enc_H1 = enc_fac(self.Y, DeterministicEncoder, enc1_specs,
+                            output_name='Fac'+self.linearized_factor_ids.pop(0))
+      self.enc_Yprime = enc_fac(self.enc_H1, DeterministicEncoder, enc2_specs,
+                            output_name='Fac'+self.linearized_factor_ids.pop(0))
       
       # TODO: Note the use of node_names below. Nodes correspond to the codes of
       # the different Encoder objects and I am foreseeing to implement an
@@ -108,6 +116,7 @@ class BasicAE(Model):
     
   def _build_cost(self):
     """
+    TODO: Normalize the cost per sample, etc.
     """
     Y = self.Y
     Yprime = self.enc_Yprime.get_output()
@@ -116,7 +125,7 @@ class BasicAE(Model):
 
   def train(self, ytrain, num_epochs, yvalid=None):
     """
-    Delegate training to the Trainer object
+    Delegate training to the Trainer object.
     """
     self.trainer.train(ytrain, num_epochs=num_epochs, yvalid=yvalid)
     
@@ -135,7 +144,7 @@ class BasicAE(Model):
     """
     sess = get_session()
     xsamps = np.random.randn(num_samples, self.xdim)
-    name = make_var_name(self.main_scope, 'samp_'+'H1')
+    name = make_var_name(self.main_scope, 'samp_'+'Fac1')
     
     sess.run(tf.global_variables_initializer())
     ysamps = sess.run(self.enc_Yprime.sample_out, feed_dict={name : xsamps})
@@ -169,7 +178,6 @@ class BasicAE(Model):
     return enc1_default_specs, enc2_default_specs
     
     
-    
 class BayesianAE(Model):
   """
   For lack of a better name...
@@ -180,10 +188,10 @@ class BayesianAE(Model):
     """
     self.ydim = ydim
     self.xdim = xdim
-    super(BayesianAE, self).__init__()
     self.specs = specs
-  
-    self.main_scope = 'BasicAE'
+
+    super(BayesianAE, self).__init__()
+    self.main_scope = 'BayesianAE'
     
     # Build the model
     self._build()
@@ -191,4 +199,23 @@ class BayesianAE(Model):
   def _build(self):
     """
     """
-    pass
+    specs = self.specs
+    ydim = self.ydim
+    b_size = specs['b_size'] if 'b_size' in self.specs else 1
+    
+    # These line builds the specs that will be used to construct the Encoders.
+    # Each Encoder object is an abstraction of the sequence:
+    #
+    # Code => Mapping => Code
+    enc1_specs, enc2_specs =  self._build_encoder_specs()
+    
+    # TODO: Then there are the Trainer objects. This takes into account the
+    # possibility that we may want to train models in different ways. In the
+    # case of this simple AutoEncoder, the training procedure is just gradient
+    # descent on a cost function. This training strategy is implemented in
+    # GDTrainer which takes a cost and some specs.
+    train_specs = {'lr' : 1e-6, 'optimizer' : 'adam'}
+    
+    enc_fac = EncoderFactory()
+    
+    

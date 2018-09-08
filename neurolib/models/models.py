@@ -16,13 +16,22 @@
 import abc
 
 from neurolib.utils.graphs import get_session
+from neurolib.encoder.encoder import Encoder
 
-# WE REFUSE TO SUPPORT PYTHON 2! :D
-class Model(abc.ABC):
+class Model(Encoder):
   """
-  TODO: Put the abc functionality to use.
+  PHILOSOPHY: Classes that inherit from the abstract class Model will be seen by
+  the client. After some thought I have decided at the moment on an architecture
+  in which Models are created through a Builder object, that has an interface
+  via which the client may add Nodes and Links as desired.
+   
+  The Model classes should implement at the very least the following methods
+  
+  _build_cost()
+  train(data_train, [data_valid,...])
+  sample(n_samps)
   """
-  def __init__(self, specs):
+  def __init__(self, **kwargs):
     """
     TODO: Should I start a session here? This presents some troubles right now,
     at least with this implementation of get_session which I am beginning to
@@ -31,11 +40,11 @@ class Model(abc.ABC):
     
     TODO: I also want to manually manage the graphs for when people want to run
     two models and compare for example.
-    """
-#     sess = get_session()
-    self.specs = specs
-    self.num_factors = num_factors = specs['num_factors']
-    self.linearized_factor_ids = self._linearize_encoder_graph(num_factors)
+    """  
+    for key, value in kwargs:
+      setattr(self, key, value)
+
+#     self.linearized_factor_ids = self._linearize_encoder_graph(num_factors)
 
   def _build(self):
     """
@@ -68,6 +77,18 @@ class Model(abc.ABC):
     TODO: Fill the exception
     """
     raise NotImplementedError("")
+
+  @abc.abstractmethod
+  def get_inputs(self):
+    """
+    """
+    raise NotImplementedError("Please implement me.")
+    
+  @abc.abstractmethod
+  def get_output(self):
+    """
+    """
+    raise NotImplementedError("Please implement me.")
   
 
 #### DUMP DUMP DUMP (For now) ####

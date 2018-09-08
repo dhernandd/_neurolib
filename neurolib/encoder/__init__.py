@@ -13,3 +13,27 @@
 # limitations under the License.
 #
 # ==============================================================================
+# from tensorflow.contrib import distributions as _distributions
+import tensorflow as tf
+from tensorflow.python.framework import dtypes
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import array_ops
+from tensorflow_probability import distributions as _distributions
+
+import inspect
+
+_globals = globals()
+for dist_name in sorted(dir(_distributions)):
+  _candidate = getattr(_distributions, dist_name)
+  if (inspect.isclass(_candidate) and
+          _candidate != _distributions.Distribution and
+          issubclass(_candidate, _distributions.Distribution)):
+    
+    # All distributions are imported here
+    _globals[dist_name] = getattr(_distributions, dist_name)
+
+    del _candidate  
+
+__all__ = ["MultivariateNormalTriL"]
+
+# print(sorted(globals().keys()))

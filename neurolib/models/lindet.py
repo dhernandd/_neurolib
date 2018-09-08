@@ -17,8 +17,11 @@ import numpy as np
 import tensorflow as tf
 
 from neurolib.models.models import Model
-# from neurolib.builders.aec import AECBuilder
-from neurolib.encoder.encoder import ( DeterministicEncoder, NormalEncoder, Encoder)
+# from neurolib.encoder.encoder import ( DeterministicEncoder, NormalEncoder, Encoder)
+from neurolib.encoder.encoder import EncoderNode
+from neurolib.encoder.deterministic import DeterministicEncoding
+from neurolib.encoder.normal import NormalEncoding
+
 from neurolib.encoder.encoder_factory import EncoderFactory
 from neurolib.trainers.trainer import GDTrainer
 from neurolib.utils.graphs import get_session
@@ -26,7 +29,7 @@ from neurolib.utils.utils import make_var_name
 from neurolib.builders.builder import StaticModelBuilder
 
 
-class DeterministicCode(Model, Encoder, StaticModelBuilder):
+class DeterministicCode(Model, EncoderNode, StaticModelBuilder):
   """
   The DeterministicCode Model is the simplest possible model in the Encoder
   paradigm. It consists of a single encoder with a single input and output.
@@ -226,9 +229,9 @@ class LinearDeterministicEncoding(Model):
     with tf.variable_scope(self.main_scope, reuse=tf.AUTO_REUSE):
       self.Y = tf.placeholder(dtype=tf.float32, shape=[b_size, self.ydim],
                               name='Fac'+self.linearized_factor_ids.pop(0))
-      self.enc_H1 = enc_fac(self.Y, DeterministicEncoder, enc1_specs,
+      self.enc_H1 = enc_fac(self.Y, DeterministicEncoding, enc1_specs,
                             output_name='Fac'+self.linearized_factor_ids.pop(0))
-      self.enc_Yprime = enc_fac(self.enc_H1, DeterministicEncoder, enc2_specs,
+      self.enc_Yprime = enc_fac(self.enc_H1, DeterministicEncoding, enc2_specs,
                             output_name='Fac'+self.linearized_factor_ids.pop(0))
       
       # TODO: Note the use of node_names below. Nodes correspond to the codes of
@@ -347,9 +350,9 @@ class BayesianAE(Model):
     with tf.variable_scope(self.main_scope, reuse=tf.AUTO_REUSE):
       self.Y = tf.placeholder(dtype=tf.float32, shape=[b_size, self.ydim],
                               name='Fac'+self.linearized_factor_ids.pop(0))
-      self.enc_H1 = enc_fac(self.Y, NormalEncoder, enc1_specs,
+      self.enc_H1 = enc_fac(self.Y, NormalEncoding, enc1_specs,
                             output_name='Fac'+self.linearized_factor_ids.pop(0))
-      self.enc_Yprime = enc_fac(self.enc_H1, NormalEncoder, enc2_specs,
+      self.enc_Yprime = enc_fac(self.enc_H1, NormalEncoding, enc2_specs,
                             output_name='Fac'+self.linearized_factor_ids.pop(0))
       
       # TODO: Note the use of node_names below. Nodes correspond to the codes of

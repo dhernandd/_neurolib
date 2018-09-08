@@ -98,7 +98,7 @@ class StaticModelBuilderBasicTest(tf.test.TestCase):
     
   def test_BuildModel3(self):
     """
-    Try to break it the algorithm... !!! Guess not mdrfkr 
+    Try to break it the algorithm... !!! Guess not mdrfkr.
     """
     tf.reset_default_graph()
     builder = StaticModelBuilder()

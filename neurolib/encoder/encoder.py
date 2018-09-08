@@ -28,9 +28,11 @@ from neurolib.encoder import *
 
 class EncoderNode(abc.ABC):
   """
-  The EncoderNode is the basic building block of the neurolib. It corresponds to the
-  abstraction of an operation, performed on a set of inputs that results in a
-  set of outputs
+  The EncoderNode is the basic building block of the neurolib. It corresponds to
+  the abstraction of an operation, performed on a set of inputs that results in
+  a set of outputs. EncoderNodes can come already built as tensorflow graphs, in
+  which case they are a black box with input and output edges, or they can be
+  Unbuilt, in which case, the method _build() handles  
   
   Models are directed graphs of Encoders. A Model is itself an EncoderNode so it is
   possible to stitch Models together to produce more complicated ones.
@@ -43,23 +45,14 @@ class EncoderNode(abc.ABC):
     """
     self.label = label
     self.directives = directives
-    self._visited_parents = {}
   
     self.num_inputs = 0
     self.inputs = {}
     self.outputs = {}
-
+    
     self.islot_to_shape = {}
     self.oslot_to_shape = {}
-    self.child_to_oslot = {}
-    self.parent_to_islot = {}
-  
-  @abc.abstractmethod
-  def _build(self):
-    """
-    """
-    raise NotImplementedError("Please implement me.")
-  
+    
   def get_inputs(self):
     """
     """
@@ -71,8 +64,35 @@ class EncoderNode(abc.ABC):
     return self.outputs
   
 
-class InputNode(EncoderNode):
+class UnbuiltEncoderNode(EncoderNode):
   """
+  Classes inheriting from the abstract UnbuiltEncoderNode, need to implement the
+  _build() method. These are the classes that are used to build custom models
+  through a builder object
+  """
+  def __init__(self, label, directives):
+    """
+    """
+    # Important dictionaries for building the Encoder graph 
+    self._visited_parents = {}
+    self.child_to_oslot = {}
+    self.parent_to_islot = {}
+
+    super(InputNode, self).__init__(label, directives)
+  
+  @abc.abstractmethod
+  def _build(self):
+    """
+    """
+    raise NotImplementedError("Please implement me.")
+
+
+class InputNode(UnbuiltEncoderNode):
+  """
+  An InputNode represents a source in the Encoder graph. It is a node without
+  any inputs and with A SINGLE output.
+  
+  InputNodes are mapped to tensorflow's placeholders.
   """
   def __init__(self, label, output_shape, batch_size=1, directives={}):
     """
@@ -81,7 +101,6 @@ class InputNode(EncoderNode):
     the self.input_to dicts are defined. These dictionaries are initialized
     empty and are filled as Links are added during the specification stage.
     """
-    self.label = label
     super(InputNode, self).__init__(label, directives)
     
     if isinstance(output_shape, int):
@@ -104,8 +123,14 @@ class InputNode(EncoderNode):
     self.outputs[0] = tf.placeholder(tf.float32, shape=out_shape, name=name) 
 
 
-class InnerNode(EncoderNode):
+class InnerNode(UnbuiltEncoderNode):
   """
+  An Inner Node represents an encoding in the Encoder graph. It can have an
+  arbitrary number of inputs and an arbitrary number of outputs. Its outputs can
+  be Deterministic or random samples from a probability distribution. An inner
+  node is meant to represent a change of codes.
+  
+  A typical example of an InnerNode would be neural network. 
   """
   def __init__(self, label, output_shapes, directives={}):
     """
@@ -118,16 +143,6 @@ class InnerNode(EncoderNode):
     for j in range(self.num_outputs):
       self.oslot_to_shape[j] = output_shapes[j]
       
-#     # Define slots for dealing with the case of multiple inputs/outputs
-#     if "input_slots" in dirs:
-#       self.input_slots = dirs["input_slots"]
-#     else:
-#       self.input_slots = { i : shape for i, shape in enumerate(self.input_shapes) }
-#     if "output_slots" in dirs:
-#       self.output_slots = dirs["output_slots"]
-#     else:
-#       self.output_slots = { i : shape for i, shape in enumerate(self.output_shapes) }
-
   @abc.abstractmethod
   def _build(self):
     """
@@ -135,8 +150,13 @@ class InnerNode(EncoderNode):
     raise NotImplementedError("")
   
 
-class OutputNode(EncoderNode):
+class OutputNode(UnbuiltEncoderNode):
   """
+  An output node represents a sink in the Encoder graph. Output nodes are
+  relatively boring. Their _build() method is trivial since there is nothing
+  left to do. It is however important to keep track of them since they are
+  obviously needed to stitch Encoders together. They also provide important
+  termination conditions for the BFS algorith that builds the Encoder Graph.
   """
   def __init__(self, label, directives={}):
     """
@@ -149,43 +169,6 @@ class OutputNode(EncoderNode):
     pass
         
 
-class DirectedLink():
-  """
-  """
-  def __init__(self, enc1, enc2, directives):
-    """
-    """
-    self.enc1 = enc1
-    self.enc2 = enc2
-    self.dirs = directives
-    self.label = (enc1.label, enc2.label)
-    
-    # Try automatic pairing of input and output slots. Automatic pairing
-    # succeeds if there is exactly one output in enc1 compatible with exactly
-    # one input in enc2. Otherwise, request the user to provide the right slots
-    try:
-      self.paired_slots = self.dirs['paired_slots']
-      if not self._are_compatible_shapes(enc1.output_slots[self.paired_slots[0]],
-                                         enc2.input_slots[self.paired_slots[1]]):
-        raise ValueError("The linked input and output shapes are not "
-                         "compatible (DirectLink ", self.label, ")")
-    except:
-      possible_pairings = [(key1, key2) for key1, shape1 in enc1.output_slots
-                           for key2, shape2 in enc2.input_slots if 
-                           self._are_compatible_shapes(shape1, shape2)]
-      if len(possible_pairings) > 1:
-        raise ValueError("Automatic pairing failure. There is more than one "
-                         "possible pairing of input and output shapes. Please "
-                         "specify the DirectedLink directive `paired_slots`")
-      else:
-        self.paired_slots = possible_pairings[0]
-  
-  @staticmethod
-  def _are_compatible_shapes(shape1, shape2):
-    """
-    """
-    # For the moment, simoply check if the two shapes are equal
-    return shape1 == shape2
 
 
 

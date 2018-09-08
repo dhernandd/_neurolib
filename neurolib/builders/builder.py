@@ -18,8 +18,7 @@ from collections import defaultdict
 
 import tensorflow as tf
 
-from neurolib.encoder.encoder import ( EncoderNode, InnerNode, InputNode, DirectedLink,
-                                       OutputNode )
+from neurolib.encoder.encoder import ( UnbuiltEncoderNode, InputNode, OutputNode )
 from neurolib.encoder.deterministic import DeterministicEncoding
 
 
@@ -41,7 +40,7 @@ class StaticModelBuilder():
   
   def addInput(self, output_shape, directives={}):
     """
-    Adds an input node to the Model
+    Adds an InputNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
     in_node = InputNode(label, output_shape, directives=directives)
@@ -53,6 +52,7 @@ class StaticModelBuilder():
   def addInner(self, output_shapes, node_class=DeterministicEncoding,
                directives={}):
     """
+    Adds an InnerNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
     enc_node = node_class(label, output_shapes, directives=directives)
@@ -62,6 +62,7 @@ class StaticModelBuilder():
     
   def addOutput(self, directives={}):
     """
+    Adds an OutputNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
     out_node = OutputNode(label, directives=directives)
@@ -105,7 +106,7 @@ class StaticModelBuilder():
       node2 = self.encoder_nodes[node2]
     
     # Update the representations of the Model graph with this link. Also 
-    if isinstance(node1, EncoderNode) and isinstance(node2, EncoderNode):
+    if isinstance(node1, UnbuiltEncoderNode) and isinstance(node2, UnbuiltEncoderNode):
       self._check_items_do_exist()
       self.adj_matrix[node1.label][node2.label] = 1
       self.adj_list[node1.label].append(node2.label)
@@ -123,6 +124,12 @@ class StaticModelBuilder():
                          node1.oslot_to_shape)
     else:
       oslot = 0
+    # Fill the all important dictionaries child_to_oslot and parent_to_islot.
+    # For node.child_to_oslot[key] = value, key represents the labels of the
+    # children of node, and the values are the indices of the output slot in
+    # node that leaves for that child. Analogously, in node.parent_to_islot[key]
+    # = value, the keys are the labels of the parents of node and the values are
+    # the input slots in node corresponding to each key.
     exchanged_shape = node1.oslot_to_shape[oslot]
     islot = node2.num_inputs
     node2.islot_to_shape[islot] = exchanged_shape
@@ -130,6 +137,8 @@ class StaticModelBuilder():
     node2.parent_to_islot[node1.label] = islot    
     node2.num_inputs += 1     
 
+    # Initialize _visited_parents for the child node. This is used in the build
+    # algorithm below.
     node2._visited_parents[node1.label] = False
       
   def _check_items_do_exist(self):
@@ -140,6 +149,7 @@ class StaticModelBuilder():
       
   def check_graph_correctness(self):
     """
+    TODO:
     """
     pass
         
@@ -148,14 +158,20 @@ class StaticModelBuilder():
     Builds the model for this builder.
     # put all nodes in a waiting list of nodes
     # for node in input_nodes:
-      # start BFS from this input node
-      # for the current node:
-      #   check if it has an input that we havent seen yet
-      #   if it doesnt, pop the node from the waiting list
-      # if the node is popped, build the Encoder graph for it otherwise store
-      # the input to the node somewhere, we will need it when we finally pop the
-      # node
-      # deal with back links.
+      # start BFS from node. Add node to queue.
+      # (*)Dequeue, mark as visited
+      # build the tensorflow graph with the new added node
+      # Look at all its children nodes.
+      # For child in children of node
+          Add node to the list of inputs of child
+      #   have we visited all the parents of child?
+          Yes
+            Add to the queue
+      # Go back to (*)
+      * If the queue is empty, exit, start over from the next input node until all 
+      # have been exhausted
+      
+      # TODO: deal with back links.
     """
     self.check_graph_correctness()
     
@@ -163,14 +179,11 @@ class StaticModelBuilder():
     visited = [False for _ in range(self.num_encoder_nodes)]
     queue = []
     for cur_inode_label in self.input_nodes:
-#       cur_inode_label = inode.label
-#       cur_name = "in_" + str(cur_inode_label)
-      
       
       # start BFS from this input
       queue.append(cur_inode_label)
       while queue:
-        # A node is by definitiion visited once it is popped from the queue
+        # A node is visited by definition once it is popped from the queue
         cur_node_label = queue.pop(0)
         visited[cur_node_label] = True
         cur_node = self.encoder_nodes[cur_node_label]

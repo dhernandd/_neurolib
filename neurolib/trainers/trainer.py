@@ -13,84 +13,114 @@
 # limitations under the License.
 #
 # ==============================================================================
-import tensorflow as tf
 import abc
+
+import numpy as np
+import tensorflow as tf
 
 from neurolib.utils.graphs import get_session
 
-class Trainer(abc.ABC):
+
+def make_data_iterator(data, batch_size=1, shuffle=True):
+    """
+    """
+    nsamps = len(data[0])
+    l_inds = np.arange(nsamps)
+    if shuffle: 
+        np.random.shuffle(l_inds)
+    
+    for i in range(0, nsamps, batch_size):
+        yield [ d[l_inds[i:i+batch_size]] for d in data ]
+            
+            
+class ModelBender(abc.ABC):
   """
   TODO: Implement training with tensorflow Queues. This is IMPORTANT! Get rid of
   the feed_dict!
   
   TODO: Put the abc functionality to use
   """
-  opt_dict = {'adam' : tf.train.AdamOptimizer,
-              'adagrad' : tf.train.AdagradOptimizer,
-              'momentum' : tf.train.MomentumOptimizer,
-              'gd' : tf.train.GradientDescentOptimizer}
-  
-  def __init__(self, train_specs):
-    """
-    """
-    self.train_specs = train_specs
-    
+  @abc.abstractmethod 
   def update(self):
     """
     """
     raise NotImplementedError("")
 
+  @abc.abstractmethod
   def train(self):
     """
     """
     raise NotImplementedError("")
 
 
-class GDTrainer(Trainer):
+class GDBender(ModelBender):
   """
   TODO: This class will probably move to a file of its own. We probably want to
   leave this file only for the abstract class.
   """
-  def __init__(self, cost, train_specs, node_names):
+  opt_dict = {'adam' : tf.train.AdamOptimizer,
+              'adagrad' : tf.train.AdagradOptimizer,
+              'momentum' : tf.train.MomentumOptimizer,
+              'gd' : tf.train.GradientDescentOptimizer}
+
+  def __init__(self, cost, directives={}):
     """
     """
-    super(GDTrainer, self).__init__(train_specs)
-    self.node_names = node_names
     self.cost = cost
+    self._update_default_directives(directives)
     
-    self.lr = lr = train_specs['lr']
-    optimizer_class = self.opt_dict[train_specs['optimizer']]
-    opt = optimizer_class(lr)
+    self._define_train_op()
+    
+  def _update_default_directives(self, directives):
+    """
+    """
+    self.directives = {'optimizer' : 'adam',
+                       'lr' : 1e-5}
+    self.directives.update(directives)
+
+  def _define_train_op(self):
+    """
+    """
+    directives = self.directives
+    optimizer_class = self.opt_dict[directives['optimizer']]
+    opt = optimizer_class(self.directives['lr'])
+    
     self.train_step = tf.get_variable("global_step", [], tf.int64,
                                       tf.zeros_initializer(),
                                       trainable=False)
-
     self.train_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,
                                         scope=tf.get_variable_scope().name)
+    print('Scope', tf.get_variable_scope().name)
+    for i in range(len(self.train_vars)):
+        shape = self.train_vars[i].get_shape().as_list()
+        print("    ", i, self.train_vars[i].name, shape)
 
-    gradsvars = opt.compute_gradients(cost, self.train_vars)
+    gradsvars = opt.compute_gradients(self.cost, self.train_vars)
     self.train_op = opt.apply_gradients(gradsvars, global_step=self.train_step,
                                         name='train1_op')
+    
+  def update(self, sess, scope, keys_and_data):
+    """
+    TODO: Get rid of the feed_dict in favor of tensorflow Queues! Add
+    multithreading capabilities
+    """
+    keys, data = keys_and_data
+    data_iterator = make_data_iterator(data)
+    keys = [scope + '/input_' + s.split('_')[-1] + ':0' for s in keys]
 
-  def update(self, ytrain):
-    """
-    TODO: Get rid of the feed_dict in favor of the Queues! Add multithreading
-    capabilities
-    """
-    sess = get_session()
-    _, cost = sess.run([self.train_op, self.cost],
-                       feed_dict={self.node_names[0] : ytrain})
+    for batch in data_iterator:
+      feed_dict = dict(zip(keys, batch))
+      _, cost = sess.run([self.train_op, self.cost], feed_dict=feed_dict)
     return cost
   
-  def train(self, ytrain, num_epochs=5, yvalid=None):
+  def train(self, train_dataset, valid_dataset={}, scope='', num_epochs=100):
     """
-    """
-    nsamps = len(ytrain)
+    User is in charge of splitting the dataset into train, validation, etc.
+    """      
     sess = get_session()
     sess.run(tf.global_variables_initializer())
     for _ in range(num_epochs):
-      for i in range(nsamps):
-        loss = self.update(ytrain[i:i+1])
+      loss = self.update(sess, scope, tuple(zip(*train_dataset.items())) )
       print(loss)
       
     sess.close()

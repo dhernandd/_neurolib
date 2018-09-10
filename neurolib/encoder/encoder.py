@@ -53,22 +53,31 @@ class EncoderNode(abc.ABC):
     self.islot_to_shape = {}
     self.oslot_to_shape = {}
     
+    self._is_built = False
+    
   def get_inputs(self):
     """
     """
-    return self.outputs
+    if not self._is_built:
+      raise NotImplementedError("A Node must be built before its inputs and outputs can be "
+                                "accessed")
+    return self.inputs
     
   def get_outputs(self):
     """
     """
+    if not self._is_built:
+      raise NotImplementedError("A Node must be built before its inputs and outputs can be "
+                                "accessed")
     return self.outputs
   
 
-class UnbuiltEncoderNode(EncoderNode):
+class UnboundEncoderNode(EncoderNode):
   """
-  Classes inheriting from the abstract UnbuiltEncoderNode, need to implement the
-  _build() method. These are the classes that are used to build custom models
-  through a builder object
+  Classes inheriting from the abstract UnboundEncoderNode, specify tensorflow
+  graphs that haven't been built yet. They must implement the _build() method.
+  These are the classes that are used to build custom models through a builder
+  object
   """
   def __init__(self, label, directives):
     """
@@ -78,7 +87,7 @@ class UnbuiltEncoderNode(EncoderNode):
     self.child_to_oslot = {}
     self.parent_to_islot = {}
 
-    super(InputNode, self).__init__(label, directives)
+    super(UnboundEncoderNode, self).__init__(label, directives)
   
   @abc.abstractmethod
   def _build(self):
@@ -87,7 +96,7 @@ class UnbuiltEncoderNode(EncoderNode):
     raise NotImplementedError("Please implement me.")
 
 
-class InputNode(UnbuiltEncoderNode):
+class InputNode(UnboundEncoderNode):
   """
   An InputNode represents a source in the Encoder graph. It is a node without
   any inputs and with A SINGLE output.
@@ -120,10 +129,12 @@ class InputNode(UnbuiltEncoderNode):
     out_shape = [self.batch_size] + self.output_shape[0]
     print("out_shape:", out_shape)
     name = 'input_' + str(self.label)
-    self.outputs[0] = tf.placeholder(tf.float32, shape=out_shape, name=name) 
+    self.outputs[0] = tf.placeholder(tf.float32, shape=out_shape, name=name)
+    
+    self._is_built = True 
 
 
-class InnerNode(UnbuiltEncoderNode):
+class InnerNode(UnboundEncoderNode):
   """
   An Inner Node represents an encoding in the Encoder graph. It can have an
   arbitrary number of inputs and an arbitrary number of outputs. Its outputs can
@@ -137,6 +148,8 @@ class InnerNode(UnbuiltEncoderNode):
     """
     super(InnerNode, self).__init__(label, directives)
     
+    if isinstance(output_shapes, int):
+      output_shapes = [[output_shapes]]
     self.output_shapes = output_shapes
     self.num_outputs = len(output_shapes)
     
@@ -150,7 +163,7 @@ class InnerNode(UnbuiltEncoderNode):
     raise NotImplementedError("")
   
 
-class OutputNode(UnbuiltEncoderNode):
+class OutputNode(UnboundEncoderNode):
   """
   An output node represents a sink in the Encoder graph. Output nodes are
   relatively boring. Their _build() method is trivial since there is nothing
@@ -165,9 +178,11 @@ class OutputNode(UnbuiltEncoderNode):
     
   def _build(self):
     """
+    Nothing needs to be done for OutputNodes. self.inputs has been already
+    updated in the BFS algorithm
     """
-    pass
-        
+    self._is_built = True
+            
 
 
 

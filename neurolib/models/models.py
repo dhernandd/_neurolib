@@ -16,9 +16,9 @@
 import abc
 
 from neurolib.utils.graphs import get_session
-from neurolib.encoder.encoder import Encoder
+from neurolib.encoder.encoder import EncoderNode
 
-class Model(Encoder):
+class Model():
   """
   PHILOSOPHY: Classes that inherit from the abstract class Model will be seen by
   the client. After some thought I have decided at the moment on an architecture
@@ -31,7 +31,7 @@ class Model(Encoder):
   train(data_train, [data_valid,...])
   sample(n_samps)
   """
-  def __init__(self, **kwargs):
+  def __init__(self):
     """
     TODO: Should I start a session here? This presents some troubles right now,
     at least with this implementation of get_session which I am beginning to
@@ -40,25 +40,25 @@ class Model(Encoder):
     
     TODO: I also want to manually manage the graphs for when people want to run
     two models and compare for example.
-    """  
-    for key, value in kwargs:
-      setattr(self, key, value)
-
-#     self.linearized_factor_ids = self._linearize_encoder_graph(num_factors)
-
-  def _build(self):
+    """
+    self.inputs = {}
+    self.outputs = {}
+    self._is_built = False
+    
+  @abc.abstractmethod
+  def _build_default(self):
     """
     TODO: Fill the exception
     """
     raise NotImplementedError("")
-    
-  @staticmethod
-  def _linearize_encoder_graph(num_factors):
+        
+  @abc.abstractmethod
+  def update(self):
     """
-    TODO: A much more sophisticated function is required here.
+    TODO: Fill the exception
     """
-    return [str(i) for i in range(num_factors)]
-    
+    raise NotImplementedError("")
+
   @abc.abstractmethod
   def train(self):
     """
@@ -85,7 +85,7 @@ class Model(Encoder):
     raise NotImplementedError("Please implement me.")
     
   @abc.abstractmethod
-  def get_output(self):
+  def get_outputs(self):
     """
     """
     raise NotImplementedError("Please implement me.")

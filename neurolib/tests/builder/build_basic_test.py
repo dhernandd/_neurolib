@@ -16,7 +16,7 @@
 import unittest
 import tensorflow as tf
 
-from neurolib.builders.builder import StaticModelBuilder
+from neurolib.builders.static_builder import StaticModelBuilder
 
 class StaticModelBuilderBasicTest(tf.test.TestCase):
   """

@@ -31,7 +31,7 @@ class DeterministicEncoding(InnerNode):
     """
     super(DeterministicEncoding, self).__init__(label, output_shapes, directives)
     self._update_directives()
-    
+        
   def _update_directives(self):
     """
     """
@@ -52,7 +52,7 @@ class DeterministicEncoding(InnerNode):
     dirs = self.directives
     
     if inputs is not None:
-      pass # TODO: Should I provide this option? meh
+      raise NotImplementedError("") # TODO: Should I provide this option? meh
     if self.num_inputs > 1:
       # TODO. Implement merging of inputs, there may be different strategies, I
       # believe that for a first demonstration, simple concatenation suffices
@@ -71,7 +71,7 @@ class DeterministicEncoding(InnerNode):
     # capabilities for different types of layers, convolutional, etc. The main
     # issue is dealing with shape
     for j in range(self.num_outputs):
-      output_dims = self.oslot_to_shape[j][0]
+      output_dims = self.oslot_to_shape[j][0] # TODO: This is only valid for 1D 
       output_name = "DetEnc_" + str(self.label) + '_' + str(j)
       hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation)
       for _ in range(num_layers-1):
@@ -79,4 +79,4 @@ class DeterministicEncoding(InnerNode):
       output = fully_connected(hid_layer, output_dims)
       self.outputs[j] = tf.identity(output, output_name) 
       
-      
+    self._is_built = True

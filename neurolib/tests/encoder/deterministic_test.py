@@ -16,7 +16,7 @@
 import unittest
 import tensorflow as tf
 
-from neurolib.encoder.deterministic import DeterministicEncoder
+from neurolib.encoder.deterministic import DeterministicEncoding
 
 class DeterministicEncoderFullTest(tf.test.TestCase):
   """
@@ -25,7 +25,7 @@ class DeterministicEncoderFullTest(tf.test.TestCase):
     """
     """
     tf.reset_default_graph()
-    det_enc = DeterministicEncoder(1, [[3], [4]])
+    det_enc = DeterministicEncoding(1, [[3], [4]])
     print("Label of this node:", det_enc.label)
     
     

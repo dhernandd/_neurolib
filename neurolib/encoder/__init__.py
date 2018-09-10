@@ -30,9 +30,9 @@ for dist_name in sorted(dir(_distributions)):
           issubclass(_candidate, _distributions.Distribution)):
     
     # All distributions are imported here
-    _globals[dist_name] = getattr(_distributions, dist_name)
+    _globals[dist_name] = _candidate
 
-    del _candidate  
+    del _candidate
 
 __all__ = ["MultivariateNormalTriL"]
 

@@ -37,14 +37,13 @@ class EncoderNode(abc.ABC):
   Models are directed graphs of Encoders. A Model is itself an EncoderNode so it is
   possible to stitch Models together to produce more complicated ones.
   """
-  def __init__(self, label, directives):
+  def __init__(self, label):
     """
     TODO: The client should be able to pass a tensorflow graph directly. In that
     case, EncoderNode should act as a simple wrapper that returns the input and the
     output.
     """
     self.label = label
-    self.directives = directives
   
     self.num_inputs = 0
     self.inputs = {}
@@ -79,7 +78,7 @@ class UnboundEncoderNode(EncoderNode):
   These are the classes that are used to build custom models through a builder
   object
   """
-  def __init__(self, label, directives):
+  def __init__(self, label):
     """
     """
     # Important dictionaries for building the Encoder graph 
@@ -87,7 +86,7 @@ class UnboundEncoderNode(EncoderNode):
     self.child_to_oslot = {}
     self.parent_to_islot = {}
 
-    super(UnboundEncoderNode, self).__init__(label, directives)
+    super(UnboundEncoderNode, self).__init__(label)
   
   @abc.abstractmethod
   def _build(self):
@@ -110,7 +109,8 @@ class InputNode(UnboundEncoderNode):
     the self.input_to dicts are defined. These dictionaries are initialized
     empty and are filled as Links are added during the specification stage.
     """
-    super(InputNode, self).__init__(label, directives)
+    super(InputNode, self).__init__(label)
+    self.directives = directives
     
     if isinstance(output_shape, int):
       output_shape = [[output_shape]]
@@ -143,10 +143,10 @@ class InnerNode(UnboundEncoderNode):
   
   A typical example of an InnerNode would be neural network. 
   """
-  def __init__(self, label, output_shapes, directives={}):
+  def __init__(self, label, output_shapes):
     """
     """
-    super(InnerNode, self).__init__(label, directives)
+    super(InnerNode, self).__init__(label)
     
     if isinstance(output_shapes, int):
       output_shapes = [[output_shapes]]
@@ -174,7 +174,8 @@ class OutputNode(UnboundEncoderNode):
   def __init__(self, label, directives={}):
     """
     """
-    super(OutputNode, self).__init__(label, directives)
+    super(OutputNode, self).__init__(label)
+    self.directives = directives
     
   def _build(self):
     """

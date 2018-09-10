@@ -65,11 +65,15 @@ class DeterministicCode(Model):
     """
     Updates the default specs with the ones provided by the user.
     """
-    self.directives = {"nnodes_1stlayer" : 128,
-                       "net_grow_rate" : 1.0,
-                       "inner_activation_fn" : 'relu',
-                       "output_activation_fn" : 'linear',
-                       "class" : 'Deterministic'}
+    self.directives = {'num_layers_0' : 2,
+                       'num_nodes_0' : 128,
+                       'activation_0' : 'leaky_relu',
+                       'net_grow_rate_0' : 1.0,
+                       'share_params' : False}
+#     self.directives = {"nnodes_1stlayer" : 128,
+#                        "net_grow_rate" : 1.0,
+#                        "inner_activation_fn" : 'relu',
+#                        "output_activation_fn" : 'linear'}
     self.directives.update(directives)
     
   def _get_directives(self):

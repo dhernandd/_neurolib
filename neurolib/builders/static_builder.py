@@ -20,6 +20,7 @@ import pydot
 from neurolib.builders.builder import Builder
 from neurolib.encoder.encoder import ( UnboundEncoderNode, InputNode, OutputNode )
 from neurolib.encoder.deterministic import DeterministicEncoding
+from neurolib.encoder.normal import NormalTrilEncoding
 
 
 class StaticModelBuilder(Builder):
@@ -55,7 +56,7 @@ class StaticModelBuilder(Builder):
     self.num_encoder_nodes += 1
     return in_node
 
-  def addInner(self, output_shapes, node_class=DeterministicEncoding,
+  def addInner(self, output_shapes, node_class=NormalTrilEncoding,
                directives={}):
     """
     Adds an InnerNode to the Encoder Graph

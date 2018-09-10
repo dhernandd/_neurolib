@@ -29,19 +29,19 @@ class DeterministicEncoding(InnerNode):
     case, EncoderNode should act as a simple wrapper that returns the input and the
     output.
     """
-    super(DeterministicEncoding, self).__init__(label, output_shapes, directives)
-    self._update_directives()
+    super(DeterministicEncoding, self).__init__(label, output_shapes)
+    self._update_directives(directives)
         
-  def _update_directives(self):
+  def _update_directives(self, directives):
     """
     """
-    default_dirs = {'num_layers' : 2,
-                    'num_nodes' : 128,
-                    'activation' : 'relu',
-                    'net_grow_rate' : 1.0}
-    default_dirs.update(self.directives)
-    self.directives = default_dirs
+    self.directives = {'num_layers_0' : 2,
+                       'num_nodes_0' : 128,
+                       'activation_0' : 'relu',
+                       'net_grow_rate_0' : 1.0}
+    self.directives.update(directives)
     
+    # Deal with directives that should map to tensorflow objects hidden from the client
     self.directives['activation'] = act_fn_dict[self.directives['activation']]
     
   def _build(self, inputs=None):
@@ -62,21 +62,22 @@ class DeterministicEncoding(InnerNode):
       # This was set while the BFS was working on the parent node
       x_in = self.inputs[0]
 
-    num_layers = dirs['num_layers']
-    num_nodes = dirs['num_nodes']
-    activation = dirs['activation']
-    net_grow_rate = dirs['net_grow_rate']
+    num_layers = dirs['num_layers_0']
+    num_nodes = dirs['num_nodes_0']
+    activation = dirs['activation_0']
+    net_grow_rate = dirs['net_grow_rate_0']
   
     # The composition of layers that defines the encoder map. TODO: Add
     # capabilities for different types of layers, convolutional, etc. The main
     # issue is dealing with shape
-    for j in range(self.num_outputs):
-      output_dims = self.oslot_to_shape[j][0] # TODO: This is only valid for 1D 
-      output_name = "DetEnc_" + str(self.label) + '_' + str(j)
+    for oslot in range(self.num_outputs):
+      output_dims = self.oslot_to_shape[oslot][0] # TODO: This is only valid for 1D 
+      output_name = "Out_" + str(self.label) + '_' + str(oslot)
       hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation)
       for _ in range(num_layers-1):
         hid_layer = fully_connected(hid_layer, int(num_nodes*net_grow_rate))
-      output = fully_connected(hid_layer, output_dims)
-      self.outputs[j] = tf.identity(output, output_name) 
+      self.outputs[oslot] = fully_connected(hid_layer, output_dims, name=output_name)
+#       output = fully_connected(hid_layer, output_dims, name=output_name)
+#       self.outputs[oslot] = tf.identity(output, output_name) 
       
     self._is_built = True

@@ -102,13 +102,14 @@ class InputNode(UnboundEncoderNode):
   
   InputNodes are mapped to tensorflow's placeholders.
   """
-  def __init__(self, label, output_shape, batch_size=1, directives={}):
+  def __init__(self, label, output_shape, name=None, batch_size=1, directives={}):
     """
     Handling of the inputs or outputs in an Encoder depends on 2 dictionaries
     that work together. To take the inputs for definiteness, the self.inputs and
     the self.input_to dicts are defined. These dictionaries are initialized
     empty and are filled as Links are added during the specification stage.
     """
+    self.name = "In_" + str(label) if name is None else name
     super(InputNode, self).__init__(label)
     self.directives = directives
     
@@ -128,7 +129,7 @@ class InputNode(UnboundEncoderNode):
 
     out_shape = [self.batch_size] + self.output_shape[0]
     print("out_shape:", out_shape)
-    name = 'input_' + str(self.label)
+    name = self.name
     self.outputs[0] = tf.placeholder(tf.float32, shape=out_shape, name=name)
     
     self._is_built = True 
@@ -143,9 +144,10 @@ class InnerNode(UnboundEncoderNode):
   
   A typical example of an InnerNode would be neural network. 
   """
-  def __init__(self, label, output_shapes):
+  def __init__(self, label, output_shapes, name=None):
     """
     """
+    self.name = "Enc_" + str(label) if name is None else name
     super(InnerNode, self).__init__(label)
     
     if isinstance(output_shapes, int):
@@ -169,11 +171,12 @@ class OutputNode(UnboundEncoderNode):
   relatively boring. Their _build() method is trivial since there is nothing
   left to do. It is however important to keep track of them since they are
   obviously needed to stitch Encoders together. They also provide important
-  termination conditions for the BFS algorith that builds the Encoder Graph.
+  termination conditions for the BFS algorithm that builds the Encoder Graph.
   """
-  def __init__(self, label, directives={}):
+  def __init__(self, label, name=None, directives={}):
     """
     """
+    self.name = "Out_" + str(label) if name is None else name
     super(OutputNode, self).__init__(label)
     self.directives = directives
     
@@ -182,6 +185,8 @@ class OutputNode(UnboundEncoderNode):
     Nothing needs to be done for OutputNodes. self.inputs has been already
     updated in the BFS algorithm
     """
+    self.inputs[0] = tf.identity(self.inputs[0], name=self.name)
+    
     self._is_built = True
             
 

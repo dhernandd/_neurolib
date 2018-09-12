@@ -106,8 +106,8 @@ class GDBender(ModelBender):
     """
     keys, data = keys_and_data
     data_iterator = make_data_iterator(data)
-    keys = [scope + '/input_' + s.split('_')[-1] + ':0' for s in keys]
-
+#     keys = [scope + '/input_' + s.split('_')[-1] + ':0' for s in keys]
+#     print(keys)
     for batch in data_iterator:
       feed_dict = dict(zip(keys, batch))
       _, cost = sess.run([self.train_op, self.cost], feed_dict=feed_dict)
@@ -124,3 +124,5 @@ class GDBender(ModelBender):
       print(loss)
       
     sess.close()
+    
+    

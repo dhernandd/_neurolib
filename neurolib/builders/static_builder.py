@@ -13,14 +13,12 @@
 # limitations under the License.
 #
 # ==============================================================================
-from collections import defaultdict
-
 import pydot
 
 from neurolib.builders.builder import Builder
 from neurolib.encoder.encoder import ( UnboundEncoderNode, InputNode, OutputNode )
 from neurolib.encoder.deterministic import DeterministicEncoding
-from neurolib.encoder.normal import NormalTrilEncoding
+# from neurolib.encoder.normal import NormalTrilEncoding
 
 
 class StaticModelBuilder(Builder):
@@ -30,21 +28,16 @@ class StaticModelBuilder(Builder):
     """
     """
     super(StaticModelBuilder, self).__init__()
-    
-    # The Encoder Graph
-    self.input_edges = defaultdict(list)
-    self.output_edges = defaultdict(list)
-    self.edges = {}
-    
+        
     # The graph of the model
     self.model_graph = pydot.Dot(graph_type='digraph')
   
-  def addInput(self, output_shape, directives={}):
+  def addInput(self, output_shape, name=None, directives={}):
     """
     Adds an InputNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
-    in_node = InputNode(label, output_shape, directives=directives)
+    in_node = InputNode(label, output_shape, name=name, directives=directives)
     
     # Add properties for visualization
     in_node.vis = pydot.Node('In_' + str(self.num_encoder_nodes))
@@ -56,13 +49,13 @@ class StaticModelBuilder(Builder):
     self.num_encoder_nodes += 1
     return in_node
 
-  def addInner(self, output_shapes, node_class=NormalTrilEncoding,
+  def addInner(self, output_shapes, name=None, node_class=DeterministicEncoding,
                directives={}):
     """
     Adds an InnerNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
-    enc_node = node_class(label, output_shapes, directives=directives)
+    enc_node = node_class(label, output_shapes, name=name, directives=directives)
     
     # Add properties for visualization
     enc_node.vis = pydot.Node('Enc_' + str(self.num_encoder_nodes))
@@ -74,12 +67,12 @@ class StaticModelBuilder(Builder):
     self.num_encoder_nodes += 1
     return enc_node
     
-  def addOutput(self, directives={}):
+  def addOutput(self, name=None, directives={}):
     """
     Adds an OutputNode to the Encoder Graph
     """
     label = self.num_encoder_nodes
-    out_node = OutputNode(label, directives=directives)
+    out_node = OutputNode(label, name=name, directives=directives)
     
     # Add properties for visualization
     out_node.vis = pydot.Node('Out_' + str(self.num_encoder_nodes))

@@ -14,11 +14,12 @@
 #
 # ==============================================================================
 import abc
+from abc import abstractmethod
 
 from neurolib.utils.graphs import get_session
 from neurolib.encoder.encoder import EncoderNode
 
-class Model():
+class Model(abc.ABC):
   """
   PHILOSOPHY: Classes that inherit from the abstract class Model will be seen by
   the client. After some thought I have decided at the moment on an architecture
@@ -45,21 +46,28 @@ class Model():
     self.outputs = {}
     self._is_built = False
     
-  @abc.abstractmethod
-  def _build_default(self):
+  @property
+  def main_scope(self):
+    """
+    TODO: Enforce somehow the setting of this property in custom classes
+    """
+    return self._main_scope
+      
+  @abstractmethod
+  def build(self):
     """
     TODO: Fill the exception
     """
     raise NotImplementedError("")
         
-  @abc.abstractmethod
+  @abstractmethod
   def update(self):
     """
     TODO: Fill the exception
     """
     raise NotImplementedError("")
 
-  @abc.abstractmethod
+  @abstractmethod
   def train(self):
     """
     TODO: Fill the exception
@@ -78,75 +86,58 @@ class Model():
     """
     raise NotImplementedError("")
 
-  @abc.abstractmethod
+  @abstractmethod
   def get_inputs(self):
     """
     """
     raise NotImplementedError("Please implement me.")
     
-  @abc.abstractmethod
+  @abstractmethod
   def get_outputs(self):
     """
     """
     raise NotImplementedError("Please implement me.")
   
-
-#### DUMP DUMP DUMP (For now) ####
-class Unsupervised():
-  """
-  TODO: This is for the moment an experiment on the hierarchy below Model.
-  Nothing serious here right now.
-  """
-  def __init__(self, Y, t_init=None, specs=None):
+  def make_datasets(self, dataset):
     """
-    """
-    self.Y = Y
-    self.ydim = int(Y.shape[1])
-
-    if t_init is not None:
-      self._initialize_from_tensors(t_init)
-      self.is_initialized = True
-    elif specs is not None:
-      self._initialize_from_specs(specs)
-      self.is_initialized = True
-    else:
-      self.is_initialized = False
+    Splits the dataset dictionary into train, validation and test datasets.
     
-  def _initialize_from_tensors(self):
+    TODO:
     """
-    """
-    raise NotImplementedError("")
-
-  def _initialize_from_specs(self, specs):
-    """
-    TODO: Fill ValueError eception
-    """
-    nodes_quality = []
-    if isinstance(specs, dict):
-      pass
-    elif isinstance(specs, str):
-      encoders_list_specs = specs.split(';')
-      for i, word in enumerate(encoders_list_specs):
-        nodes_quality.append[word[0]]
-        encoders_list_specs[i] = word[1:]
-      
-      it = iter(encoders_list_specs)
-      output = self._initialize_single_encoder_from_spec(next(it), quals=nodes_quality)
-      while True:
-        try:
-          nxt = next(it)
-          self._initialize_single_encoder_from_spec(nxt, quals=nodes_quality, inputs=output)
-        except StopIteration:
-          break
-    else:
-      raise ValueError("")
-
-  def _initialize_single_encoder_from_spec(self, spec, quals, inputs=None):
-    """
-    """
-    if inputs is None: inputs = self.Y
+    scope = self.main_scope
+    train_dataset = {}
+    valid_dataset = {}
+    test_dataset = {}
+    for key in dataset:
+      d_set, inode = key.split('_')[0], key.split('_')[-1]
+      if d_set == 'train':
+        train_dataset[scope + '/' + inode + ':0'] = dataset[key]
+      elif d_set == 'valid':
+        valid_dataset[key] = dataset[key]
+      elif d_set == 'test':
+        test_dataset[key] = dataset[key]
+      else:
+        raise KeyError("The dataset contains the key `{}`. The only allowed prefixes "
+                       "for keys in the dataset are 'train', 'valid' and 'test'".format(key))
     
-  def train(self):
+    return train_dataset, valid_dataset, test_dataset
+  
+  
+class StaticModel(Model):
+  """
+  """
+  def __init__(self):
     """
     """
-    raise NotImplementedError("Method `train` is not defined in user class")
+    super(StaticModel, self).__init__()
+
+  
+
+class SequentialModel():
+  """
+  """
+  def __init__(self):
+    """
+    """
+    super(SequentialModel, self).__init__()
+  

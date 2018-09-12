@@ -18,18 +18,19 @@ from tensorflow.contrib.layers.python.layers import fully_connected
 
 from neurolib.encoder.encoder import InnerNode
 
-act_fn_dict = {'relu' : tf.nn.relu}
+act_fn_dict = {'relu' : tf.nn.relu,
+               'leaky_relu' : tf.nn.leaky_relu}
 
 class DeterministicEncoding(InnerNode):
   """
   """
-  def __init__(self, label, output_shapes, directives={}):
+  def __init__(self, label, output_shapes, name=None, directives={}):
     """
     TODO: The user should be able to pass a tensorflow graph directly. In that
     case, EncoderNode should act as a simple wrapper that returns the input and the
     output.
     """
-    super(DeterministicEncoding, self).__init__(label, output_shapes)
+    super(DeterministicEncoding, self).__init__(label, output_shapes, name=name)
     self._update_directives(directives)
         
   def _update_directives(self, directives):
@@ -42,7 +43,7 @@ class DeterministicEncoding(InnerNode):
     self.directives.update(directives)
     
     # Deal with directives that should map to tensorflow objects hidden from the client
-    self.directives['activation'] = act_fn_dict[self.directives['activation']]
+    self.directives['activation_0'] = act_fn_dict[self.directives['activation_0']]
     
   def _build(self, inputs=None):
     """
@@ -76,8 +77,7 @@ class DeterministicEncoding(InnerNode):
       hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation)
       for _ in range(num_layers-1):
         hid_layer = fully_connected(hid_layer, int(num_nodes*net_grow_rate))
-      self.outputs[oslot] = fully_connected(hid_layer, output_dims, name=output_name)
-#       output = fully_connected(hid_layer, output_dims, name=output_name)
-#       self.outputs[oslot] = tf.identity(output, output_name) 
+      output = fully_connected(hid_layer, output_dims)
+      self.outputs[oslot] = tf.identity(output, output_name) 
       
     self._is_built = True

@@ -21,7 +21,7 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from neurolib.models.deterministic_code import DeterministicCode
+from neurolib.models.deterministic import NeuralNetRegression
 from tensorflow.contrib.layers.python.layers import fully_connected
 
 def make_data_iterator(data, batch_size=1, shuffle=True):
@@ -44,16 +44,16 @@ class DeterministicCodeFullTest(tf.test.TestCase):
     """
     """
     tf.reset_default_graph()
-    DeterministicCode(input_dim=10, output_dim=1)
+    NeuralNetRegression(input_dim=10, output_dim=1)
     
   @unittest.skip("Skipping")
   def test_build(self):
     """
     """
     tf.reset_default_graph()
-    dc = DeterministicCode(input_dim=10, output_dim=1)
+    dc = NeuralNetRegression(input_dim=10, output_dim=1)
     dc.build()
-    dc.visualize_graph()
+#     dc.visualize_graph()
     
 #   @unittest.skip("Skipping")
   def test_train(self):
@@ -61,13 +61,13 @@ class DeterministicCodeFullTest(tf.test.TestCase):
     """
     x = 10.0*np.random.randn(100, 2)
     y = x[:,0:1] + 1.5*x[:,1:]# + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
-    dataset = {'train_0' : x,
-               'train_1' : y}
+    dataset = {'train_features' : x,
+               'train_response' : y}
     
     tf.reset_default_graph()
-    dc = DeterministicCode(input_dim=2, output_dim=1)
+    dc = NeuralNetRegression(input_dim=2, output_dim=1)
     dc.build()
-    dc.train(dataset, num_epochs=1000)
+    dc.train(dataset, num_epochs=10)
     
 
 if __name__ == '__main__':

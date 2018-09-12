@@ -29,13 +29,13 @@ class Builder(abc.ABC):
     self.num_encoder_nodes = 0
     
   @abc.abstractmethod
-  def addInput(self, output_shape, directives={}):
+  def addInput(self, output_shape, name=None, directives={}):
     """
     """
     raise NotImplementedError("Builders must implement addInput")
 
   @abc.abstractmethod
-  def addInner(self, output_shapes, node_class=None,
+  def addInner(self, output_shapes, name=None, node_class=None,
                directives={}):
     """
     Adds an InnerNode to the Encoder Graph
@@ -43,7 +43,7 @@ class Builder(abc.ABC):
     raise NotImplementedError("Builders must implement addInner")
 
   @abc.abstractmethod
-  def addOutput(self, directives={}):
+  def addOutput(self, name=None, directives={}):
     """
     """
     raise NotImplementedError("Builders must implement addInner")

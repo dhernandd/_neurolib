@@ -14,9 +14,8 @@
 #
 # ==============================================================================
 
-from neurolib.models.models import Unsupervised
 
-class BasicRNN(Unsupervised):
+class VanillaRNN():
   """
   """
   def __init__(self):

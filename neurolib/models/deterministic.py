@@ -13,24 +13,17 @@
 # limitations under the License.
 #
 # ==============================================================================
-# import numpy as np
 import tensorflow as tf
 
 from neurolib.models.models import Model
-# from neurolib.encoder.encoder import ( DeterministicEncoder, NormalEncoder, Encoder)
-# from neurolib.encoder.encoder import EncoderNode
-# from neurolib.encoder.deterministic import DeterministicEncoding
-# from neurolib.encoder.normal import NormalEncoding
 
 from neurolib.trainers.trainer import GDBender
-from neurolib.utils.graphs import get_session
-# from neurolib.utils.utils import make_var_name
 from neurolib.builders.static_builder import StaticModelBuilder
 
 
-class DeterministicCode(Model):
+class NeuralNetRegression(Model):
   """
-  The DeterministicCode Model is the simplest possible model in the Encoder
+  The NeuralNetRegression Model is the simplest possible model in the Encoder
   paradigm. It consists of a single encoder with a single input and output.
   
   in => E => out
@@ -41,25 +34,41 @@ class DeterministicCode(Model):
     self.input_dim = input_dim
     self.output_dim = output_dim
     self._update_default_directives(directives)
+    
     # The main scope for this model. 
-    self.main_scope = 'DeterministicCode'
+    self._main_scope = 'NeuralNetRegression'
 
-    super(DeterministicCode, self).__init__()
+    super(NeuralNetRegression, self).__init__()
     self.builder = builder
     if builder is not None:
-      self._check_build()
+      self._help_build()
     else:
       if input_dim is None or output_dim is None:
         raise ValueError("Both the input dimension (in_dims) and the output dimension "
                          "(out_dims) are necessary in order to specify build the default "
-                         "DeterministicCode.")
-                    
-  def _check_build(self):
+                         "NeuralNetRegression.")
+                      
+  def _help_build(self):
     """
     A function to check that the client-provided builder corresponds indeed to a
-    DeterministicCode. Not clear whether this is actually needed, keep for now.
+    NeuralNetRegression. Not clear whether this is actually needed, keep for now.
+    """
+    dirs = self.directives
+    trainer = dirs['trainer']
+    print("Hi! I see you are attempting to build a Regressor by yourself."
+          "In order for your model to be consistent with the ", trainer,
+          " Trainer, you must implement the following Output Nodes:")
+    if trainer == 'gd-mse':
+      print("OutputNode(input_dim={}, name='regressors')".format(self.output_dim))
+      print("OutputNode(input_dim={}, name='response')".format(self.output_dim))
+      print("\nThis is an absolute minimum requirement and NOT a guarantee that a custom "
+            "model will be successfully trained (read the docs for more).")
+      
+  def _check_build(self):
+    """
     """
     pass
+    
   
   def _update_default_directives(self, directives):
     """
@@ -69,11 +78,9 @@ class DeterministicCode(Model):
                        'num_nodes_0' : 128,
                        'activation_0' : 'leaky_relu',
                        'net_grow_rate_0' : 1.0,
-                       'share_params' : False}
-#     self.directives = {"nnodes_1stlayer" : 128,
-#                        "net_grow_rate" : 1.0,
-#                        "inner_activation_fn" : 'relu',
-#                        "output_activation_fn" : 'linear'}
+                       'share_params' : False,
+                       'trainer' : 'gd-mse',
+                       'gd_optimizer' : 'adam'}
     self.directives.update(directives)
     
   def _get_directives(self):
@@ -95,7 +102,7 @@ class DeterministicCode(Model):
 
   def build(self):
     """
-    Builds the DeterministicCode.
+    Builds the NeuralNetRegression.
     
     => E =>
     """
@@ -105,25 +112,31 @@ class DeterministicCode(Model):
       
       enc_dirs, in_dirs, out_dirs = self._get_directives()
 
-      in0 = builder.addInput(self.input_dim)
-      in1 = builder.addInput(self.output_dim, directives=in_dirs)
+      in0 = builder.addInput(self.input_dim, name="features")
       enc1 = builder.addInner(self.output_dim, directives=enc_dirs)
-      out0 = builder.addOutput(directives=out_dirs)
-      out1 = builder.addOutput(directives=out_dirs)
+      out0 = builder.addOutput(directives=out_dirs, name="prediction")
+
+      in1 = builder.addInput(self.output_dim, directives=in_dirs, name="response")
+      out1 = builder.addOutput(directives=out_dirs, name="response")
       
       builder.addDirectedLink(in0, enc1)
       builder.addDirectedLink(enc1, out0)
       builder.addDirectedLink(in1, out1)
     
       self._adj_list = builder.adj_list
+    else:
+      self._check_build()
 
     with tf.variable_scope(self.main_scope, reuse=tf.AUTO_REUSE):
       # Build the tensorflow graph
       builder.build()
       self.model_graph = builder.model_graph
       
-      self.inputs.update(builder.input_nodes)
-      self.outputs.update(builder.output_nodes)
+      for node in builder.input_nodes.values():
+        self.inputs[node.name] = node.get_outputs()[0]
+#         self.inputs.update(builder.input_nodes)
+      for node in builder.output_nodes.values():
+        self.outputs[node.name] = node.get_inputs()[0]
       
       self.cost = self._define_cost()
       
@@ -133,9 +146,8 @@ class DeterministicCode(Model):
   def _define_cost(self):
     """
     """
-    outputs = list(self.outputs.values())
-    O0 = outputs[0].get_inputs()[0]
-    O1 = outputs[1].get_inputs()[0]
+    O0 = self.outputs["prediction"]
+    O1 = self.outputs["response"]
    
     return tf.reduce_sum((O0-O1)**2, name='mse_cost')
     
@@ -156,46 +168,46 @@ class DeterministicCode(Model):
   
   def train(self, dataset, num_epochs=100):
     """
-    Transforms a dataset provided by the user into a tensorflow feeddict. Then
-    trains the model. 
+    Trains the model. 
     
     The dataset provided by the client should have keys
     
-    train_#
-    valid_#
+    train_features, train_response
+    valid_features, valid_response
+    test_features, test_response
     
     where # is the number of the corresponding Input node, see model graph.
     """
     self._check_dataset_correctness(dataset)
 
-    def split_dataset(dataset):
-      """
-      """
-      train_dataset = {}
-      valid_dataset = {}
-      for key in dataset:
-        if key.startswith('train'):
-          train_dataset[key] = dataset[key]
-        elif key.startswith('train') == 'valid':
-          valid_dataset[key] = dataset[key]
-        else:
-          raise KeyError("The dataset contains the key ", key, ". The prefixes of the "
-                         "keys of the dataset must be either 'train' or 'valid'")
-      return train_dataset, valid_dataset
-    
-    train_dataset, valid_dataset = split_dataset(dataset)
-
+    train_dataset, valid_dataset, _ = self.make_datasets(dataset)
     self.bender.train(train_dataset, valid_dataset, scope=self.main_scope, num_epochs=num_epochs)
     
-  def visualize_model_graph(self):
+  def visualize_model_graph(self, filename="model_graph"):
     """
+    Generates a representation of the computational graph
     """
-    self.model_graph.write_png("model_graph")
+    self.model_graph.write_png(filename)
     
   def _check_dataset_correctness(self, dataset):
     """
     """
     pass
+  
+  def get_encoders(self):
+    """
+    """
+    pass
+
+class BayesianRegression(Model):
+  """
+  """
+  def __init__(self):
+    """
+    """
+    pass
+  
+  
   
   
   

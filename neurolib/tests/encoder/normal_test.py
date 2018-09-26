@@ -13,37 +13,44 @@
 # limitations under the License.
 #
 # ==============================================================================
+import os
+os.environ['PATH'] += ':/usr/local/bin'
+
 import unittest
 import tensorflow as tf
 
-from neurolib.encoder.normal import NormalTrilEncoding
+from neurolib.encoder.normal import NormalTriLNode
+from neurolib.builders.static_builder import StaticModelBuilder
 
-class DeterministicEncoderFullTest(tf.test.TestCase):
+class NormalTriLFullTest(tf.test.TestCase):
   """
   """
-  @unittest.skip("Skipping")
-  def test_init(self):
+  def setUp(self):
     """
     """
-    label = 1
-    output_shapes = [[3]]
     tf.reset_default_graph()
-    det_enc = NormalTrilEncoding(label, output_shapes)
-    print("Label of this node:", det_enc.label)
-    self.assertEqual(det_enc.label, label, msg="Label is not assigned correctly")
-    self.assertEqual(output_shapes[0], det_enc.oslot_to_shape[0], msg="Output shape does not "
-                     "match the shape indicated in the oslot")
+        
+  @unittest.skipIf(False, "Skipping")
+  def test_init_build(self):
+    """
+    """
+    print("Test 0: Initialization + Build")
+    output_shape = [3]
     
-  def test_build(self):
-    """
-    """
-    label = 1
-    output_shapes = [[3]]
-    tf.reset_default_graph()
-    det_enc = NormalTrilEncoding(label, output_shapes)
-    det_enc.inputs[0] = tf.placeholder(dtype=tf.float32, shape=[1, 10])
-    det_enc._build()
-#     self.assertEqual(det_enc.label, label, msg="Label is not assigned correctly")
+    builder = StaticModelBuilder("NormalTest")
+    i0 = builder.addInput(output_shape, name='features', directives={})
+    enc0 = builder.addInner([4], name='NormalTril',
+                            node_class=NormalTriLNode, directives={})
+    o0 = builder.addOutput(name='response', directives={})
+    
+    builder.addDirectedLink(i0, enc0)
+    builder.addDirectedLink(enc0, o0, oslot=0)
+    print("Label of this node:", builder.nodes[enc0].label)
+    builder._build()
+#     builder.visualize_model_graph()
+    
     
 if __name__ == '__main__':
   tf.test.main()
+  
+  

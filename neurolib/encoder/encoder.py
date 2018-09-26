@@ -14,181 +14,129 @@
 #
 # ==============================================================================
 import abc
+from abc import abstractmethod
 from collections import namedtuple
 
-import numpy as np
 DistPars = namedtuple("DistPars", ("distribution", "get_out_dims"))
 
-import tensorflow as tf
-# TODO: Import all these!
-
-
 from neurolib.encoder import *
-# TODO: import all distributions, provide support for all of them
 
-class EncoderNode(abc.ABC):
+class ANode(abc.ABC):
   """
-  The EncoderNode is the basic building block of the neurolib. It corresponds to
-  the abstraction of an operation, performed on a set of inputs that results in
-  a set of outputs. EncoderNodes can come already built as tensorflow graphs, in
-  which case they are a black box with input and output edges, or they can be
-  Unbuilt, in which case, the method _build() handles  
+  An abstract class for Nodes, the basic building block of the neurolib 
   
-  Models are directed graphs of Encoders. A Model is itself an EncoderNode so it is
-  possible to stitch Models together to produce more complicated ones.
+  An ANode corresponds is an abstraction of an operation, much like
+  tensorflow ops, with tensors entering and exiting the node. As opposed to
+  tensorflow nodes, Nodes are meant to only represent high level operation,
+  each broadly corresponding to an encoding of some input information into some
+  output. Some ANodes, such as the Concat ANode also serve in a glue role,
+  stitching together nodes of the computational graph.
+  
+  An ANode specifies a tensorflow graph that has not been
+  built yet. A Builder object stacks these Nodes in order to build custom
+  models. Descendants of this class must implement the _build() method.
+  
+  The algorithm to build the tensorflow graph  of the Model depends on 3
+  dictionaries that work together: 
+  
+  self._visited_parents : Keeps track of which among the parents of this node
+  have been built. A node can only be built once all of its parents have been
+  built
+  
+  self._child_to_oslot : The keys are the labels of self's children. For each
+  key, the only value value is an integer, the oslot in self that maps to that
+  child.
+  
+  self._parent_to_islot : The keys are the labels of self's parents, the only
+  value is an integer, the islot in self that maps to that child. 
   """
   def __init__(self, label):
     """
     TODO: The client should be able to pass a tensorflow graph directly. In that
-    case, EncoderNode should act as a simple wrapper that returns the input and the
+    case, ANode should act as a simple wrapper that returns the input and the
     output.
     """
     self.label = label
   
-    self.num_inputs = 0
-    self.inputs = {}
-    self.outputs = {}
+    self._num_declared_inputs = 0
+    self._num_declared_outputs = 0
     
-    self.islot_to_shape = {}
-    self.oslot_to_shape = {}
+    # Dictionaries for access    
+    self._islot_to_itensor = {}
+    self._islot_to_shape = {}
+    self._oslot_to_otensor = {}
+    self._oslot_to_shape = {}
+    
+    self._visited_parents = {}
+    self._child_to_oslot = {}
+    self._parent_to_islot = {}
     
     self._is_built = False
     
+  @property
+  def num_inputs(self):
+    """
+    """
+    return self._num_declared_inputs
+  
+  @num_inputs.setter
+  @abstractmethod
+  def num_inputs(self, value):
+    """
+    """
+    raise NotImplementedError("Please implement me")
+  
+  @property
+  def num_outputs(self):
+    """
+    """
+    return self._num_declared_outputs
+  
+  @num_outputs.setter
+  @abstractmethod
+  def num_outputs(self, value):
+    """
+    """
+    raise NotImplementedError("Please implement me")
+  
   def get_inputs(self):
     """
     """
     if not self._is_built:
-      raise NotImplementedError("A Node must be built before its inputs and outputs can be "
-                                "accessed")
-    return self.inputs
+      raise NotImplementedError("A Node must be built before its inputs and "
+                                "outputs can be accessed")
+    return self._islot_to_itensor
     
   def get_outputs(self):
     """
     """
     if not self._is_built:
-      raise NotImplementedError("A Node must be built before its inputs and outputs can be "
-                                "accessed")
-    return self.outputs
+      raise NotImplementedError("A Node must be built before its inputs and "
+                                "outputs can be accessed")
+    return self._oslot_to_otensor
   
-
-class UnboundEncoderNode(EncoderNode):
-  """
-  Classes inheriting from the abstract UnboundEncoderNode, specify tensorflow
-  graphs that haven't been built yet. They must implement the _build() method.
-  These are the classes that are used to build custom models through a builder
-  object
-  """
-  def __init__(self, label):
+  def get_output_shapes(self):
     """
     """
-    # Important dictionaries for building the Encoder graph 
-    self._visited_parents = {}
-    self.child_to_oslot = {}
-    self.parent_to_islot = {}
-
-    super(UnboundEncoderNode, self).__init__(label)
+    return self._oslot_to_shape
   
-  @abc.abstractmethod
+  @abstractmethod
   def _build(self):
     """
     """
     raise NotImplementedError("Please implement me.")
-
-
-class InputNode(UnboundEncoderNode):
-  """
-  An InputNode represents a source in the Encoder graph. It is a node without
-  any inputs and with A SINGLE output.
   
-  InputNodes are mapped to tensorflow's placeholders.
-  """
-  def __init__(self, label, output_shape, name=None, batch_size=1, directives={}):
-    """
-    Handling of the inputs or outputs in an Encoder depends on 2 dictionaries
-    that work together. To take the inputs for definiteness, the self.inputs and
-    the self.input_to dicts are defined. These dictionaries are initialized
-    empty and are filled as Links are added during the specification stage.
-    """
-    self.name = "In_" + str(label) if name is None else name
-    super(InputNode, self).__init__(label)
-    self.directives = directives
-    
-    if isinstance(output_shape, int):
-      output_shape = [[output_shape]]
-    self.output_shape = output_shape
-    self.batch_size = batch_size
-    
-    self.num_outputs = 1
-    self.oslot_to_shape[0] = output_shape
-        
-  def _build(self, inputs=None):
+  def get_name(self):
     """
     """
-    if inputs is not None:
-      raise ValueError("inuts must be None for an InputNode")
+    return self.name
 
-    out_shape = [self.batch_size] + self.output_shape[0]
-    print("out_shape:", out_shape)
-    name = self.name
-    self.outputs[0] = tf.placeholder(tf.float32, shape=out_shape, name=name)
-    
-    self._is_built = True 
-
-
-class InnerNode(UnboundEncoderNode):
-  """
-  An Inner Node represents an encoding in the Encoder graph. It can have an
-  arbitrary number of inputs and an arbitrary number of outputs. Its outputs can
-  be Deterministic or random samples from a probability distribution. An inner
-  node is meant to represent a change of codes.
+  def get_label(self):
+    """
+    """
+    return self.label
   
-  A typical example of an InnerNode would be neural network. 
-  """
-  def __init__(self, label, output_shapes, name=None):
-    """
-    """
-    self.name = "Enc_" + str(label) if name is None else name
-    super(InnerNode, self).__init__(label)
-    
-    if isinstance(output_shapes, int):
-      output_shapes = [[output_shapes]]
-    self.output_shapes = output_shapes
-    self.num_outputs = len(output_shapes)
-    
-    for j in range(self.num_outputs):
-      self.oslot_to_shape[j] = output_shapes[j]
-      
-  @abc.abstractmethod
-  def _build(self):
-    """
-    """
-    raise NotImplementedError("")
   
-
-class OutputNode(UnboundEncoderNode):
-  """
-  An output node represents a sink in the Encoder graph. Output nodes are
-  relatively boring. Their _build() method is trivial since there is nothing
-  left to do. It is however important to keep track of them since they are
-  obviously needed to stitch Encoders together. They also provide important
-  termination conditions for the BFS algorithm that builds the Encoder Graph.
-  """
-  def __init__(self, label, name=None, directives={}):
-    """
-    """
-    self.name = "Out_" + str(label) if name is None else name
-    super(OutputNode, self).__init__(label)
-    self.directives = directives
-    
-  def _build(self):
-    """
-    Nothing needs to be done for OutputNodes. self.inputs has been already
-    updated in the BFS algorithm
-    """
-    self.inputs[0] = tf.identity(self.inputs[0], name=self.name)
-    
-    self._is_built = True
-            
 
 
 

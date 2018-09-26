@@ -16,9 +16,6 @@
 import abc
 from abc import abstractmethod
 
-from neurolib.utils.graphs import get_session
-from neurolib.encoder.encoder import EncoderNode
-
 class Model(abc.ABC):
   """
   PHILOSOPHY: Classes that inherit from the abstract class Model will be seen by

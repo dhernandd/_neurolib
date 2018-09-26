@@ -13,6 +13,7 @@
 # limitations under the License.
 #
 # ==============================================================================
+import numpy as np
 import tensorflow as tf
 
 DTYPE = tf.float32
@@ -25,6 +26,18 @@ def variable_in_cpu(name, shape, initializer, collections=None):
                               collections=collections)
     return var
 
-
 def make_var_name(scope, name):
   return scope + '/' + name + ':0'
+
+def make_data_iterator(data, batch_size=1, shuffle=True):
+    """
+    """
+    nsamps = len(data[0])
+    l_inds = np.arange(nsamps)
+    if shuffle: 
+        np.random.shuffle(l_inds)
+    
+    for i in range(0, nsamps, batch_size):
+        yield [ d[l_inds[i:i+batch_size]] for d in data ]
+        
+        

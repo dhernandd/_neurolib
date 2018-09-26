@@ -17,103 +17,203 @@ import unittest
 import tensorflow as tf
 
 from neurolib.builders.static_builder import StaticModelBuilder
+from neurolib.encoder.basic import CloneNode, MergeConcatNode
 
 class StaticModelBuilderBasicTest(tf.test.TestCase):
   """
   """
-  @unittest.skip
-  def test_init(self):
+  def setUp(self):
     """
     """
-    builder = StaticModelBuilder()
-    builder.addInput(10)
-    print('Nodes in builder:', builder.input_nodes)
+    tf.reset_default_graph()
     
-  @unittest.skip
+  @unittest.skipIf(False, "Skipping")
+  def test0_init(self):
+    """
+    Test add basic InputNode
+    """
+    print("\nTest 0: Initialization")
+    builder = StaticModelBuilder()
+    in1_name = builder.addInput(10)
+    in1 = builder.input_nodes[in1_name]
+    
+    print('Node keys in builder:', list(builder.input_nodes.keys()))
+    self.assertEqual(in1.label, 0, "The label has not been assigned correctly")
+    self.assertEqual(builder.num_nodes, 1, "The number of nodes has not been "
+                     "assigned correctly")
+    self.assertEqual(in1.num_outputs, 1, "The number of outputs of the InputNode"
+                     "has not been assigned correctly")
+    self.assertEqual(in1.num_inputs, 0, "The number of outputs of the InputNode"
+                     "has not been assigned correctly")
+    
+  @unittest.skipIf(False, "Skipping")
   def test_addInner(self):
     """
+    Test add basic Deterministic InnerNode. In passing tests check_names
+    decorator
+    
+    NOTE: The DeterministicNode belongs to the class of nodes that 
+    starts with a known final number of outputs. 
     """
-    tf.reset_default_graph()
-    builder = StaticModelBuilder()
-    builder.addInput(10)
-    builder.addInner([[3], [4]])
-    print('Nodes in builder:', builder.encoder_nodes)
+    print("\nTest 1: Adding InnerNode")
+    try:
+      builder = StaticModelBuilder()
+      builder.addInput(10, name="In")
+      enc_name = builder.addInner([3], name="In")
+    except AttributeError:
+      print("\nCAUGHT! AttributeError exception\n")
+      builder = StaticModelBuilder()
+      builder.addInput(10, name="In")
+      enc_name = builder.addInner([3], name="Det")
 
-  @unittest.skip
+    enc1 = builder.nodes[enc_name]
+    print('\nNode keys in builder:', list(builder.nodes.keys()))
+    print("This node's key:", enc_name)
+    self.assertEqual(enc1.label, 1, "The label has not been assigned correctly")
+    self.assertEqual(builder.num_nodes, 2, "The number of nodes has not been "
+                     "assigned correctly")
+    self.assertEqual(enc1.num_outputs, 1, "The number of outputs of the "
+                     "DeterministicNode has not been assigned correctly")
+    self.assertEqual(enc1.num_inputs, 0, "The number of inputs of the "
+                     "DeterministicNode has not been assigned correctly")
+
+  @unittest.skipIf(False, "Skipping")
   def test_addOutput(self):
     """
+    Tests add basic OutputNode
     """
-    tf.reset_default_graph()
+    print("\nTest 2: Adding OutputNode")
     builder = StaticModelBuilder()
-    builder.addInput(10)
-    builder.addInner([[3], [4]])
-    builder.addOutput()
-    print('Nodes in builder:', builder.encoder_nodes)
+    builder.addInput(10, name="In")
+#     builder.addInner([[3], [4]]) # FAILS, OK!
+    builder.addInner([[3]], name="Det")
+    o_name = builder.addOutput(name="Out")
+    
+    o1 = builder.nodes[o_name]
+    print("\nNode keys in builder:", list(builder.nodes.keys()))
+    print("This node's key:", o_name)
+    self.assertEqual(o1.label, 2, "The label has not been assigned correctly")
+    self.assertEqual(builder.num_nodes, 3, "The number of nodes has not been "
+                     "assigned correctly")
+    self.assertEqual(o1.num_outputs, 0, "The number of outputs of the "
+                     "OutputNode has not been assigned correctly")
+    self.assertEqual(o1.num_inputs, 0, "The number of inputs of the "
+                     "OutputNode has not been assigned correctly")
   
-  @unittest.skip
+  @unittest.skipIf(False, "Skipping")
   def test_addDirectedLinks(self):
+    """
+    Tests, add DirectedLinks
+    """
+    print("\nTest 3: Adding DirectedLinks")
+    builder = StaticModelBuilder()
+    in1 = builder.addInput(10, name="In")
+    enc1 = builder.addInner([3], name="Det")
+    out1 = builder.addOutput(name="Out")
+    
+    builder.addDirectedLink(in1, enc1)
+    builder.addDirectedLink(enc1, out1)
+    
+    print('\nNode keys in builder:', list(builder.nodes.keys()))
+    self.assertEqual(builder.num_nodes, 3, "The number of nodes has not been "
+                     "assigned correctly")
+    self.assertIn(1, builder.adj_list[0], "Node 1 has not been added to the "
+                  "adjacency list of Node 0")
+    self.assertIn(2, builder.adj_list[1], "Node 2 has not been added to the "
+                  "adjacency list of Node 1")
+
+  @unittest.skipIf(False, "Skipping")
+  def test_BuildModel0(self):
     """
     Builds the simplest model possible, check that it is built correctly.
     """
-    tf.reset_default_graph()
-    builder = StaticModelBuilder()
-    in1 = builder.addInput(10)
-    enc1 = builder.addInner([[3]])
-    out1 = builder.addOutput()
-    builder.addDirectedLink(in1, enc1)
-    builder.addDirectedLink(enc1, out1)
-    builder.build()
-
-  @unittest.skip
+    print("\nTest 4: Building a Basic Model")
+    builder = StaticModelBuilder(scope="Basic")
+    in_name = builder.addInput(10)
+    enc_name = builder.addInner([3])
+    out_name = builder.addOutput()
+    builder.addDirectedLink(in_name, enc_name)
+    builder.addDirectedLink(enc_name, out_name)
+    
+    self.assertEqual(builder.num_nodes, 3, "The number of nodes has not been "
+                     "assigned correctly")
+    
+    builder._build()
+    inn, enc, out = ( builder.nodes[in_name], builder.nodes[enc_name],
+                      builder.nodes[out_name] )
+    self.assertEqual(inn._oslot_to_otensor[0].shape.as_list()[-1],
+                     enc._islot_to_itensor[0].shape.as_list()[-1], 
+                     "The input tensors have not been assigned correclty")
+    self.assertEqual(enc._oslot_to_otensor[0].shape.as_list()[-1],
+                     out._islot_to_itensor[0].shape.as_list()[-1], 
+                     "The input tensors have not been assigned correclty")
+    
+  @unittest.skipIf(False, "Skipping")
   def test_BuildModel1(self):
     """
-    Builds a model with 2 outputs... OK!
+    Builds a model with 2 outputs. Test CloneNode... OK!
     """
-    tf.reset_default_graph()
-    builder = StaticModelBuilder()
+    print("\nTest 5: Building a Model with Clone")
+    builder = StaticModelBuilder("Clone")
     in1 = builder.addInput(10)
-    enc1 = builder.addInner([[3], [4]])
-    out1 = builder.addOutput()
-    out2 = builder.addOutput()
+    enc1 = builder.addInner([[3]])
+    cl1 = builder.addInner(2, node_class=CloneNode, name="Clone")
     builder.addDirectedLink(in1, enc1)
-    builder.addDirectedLink(enc1, out1, oslot=0)
-    builder.addDirectedLink(enc1, out2, oslot=1)
-    builder.build()
+    builder.addDirectedLink(enc1, cl1)
+    
+    out1 = builder.addOutput(name="Out1")
+    out2 = builder.addOutput(name="Out2")
+    
+    builder.addDirectedLink(cl1, out1, oslot=0)
+    builder.addDirectedLink(cl1, out2, oslot=1)
 
-  @unittest.skip
+    builder._build()
+
+  @unittest.skipIf(False, "Skipping")
   def test_BuildModel2(self):
     """
-    Builds a model with 2 inputs
+    Builds a model with 2 inputs. Test ConcatNode
     """
-    tf.reset_default_graph()
-    builder = StaticModelBuilder()
+    print("\nTest 6: Building a Model with Concat")
+    builder = StaticModelBuilder("Concat")
     in1 = builder.addInput(10)
     in2 = builder.addInput(20)
+    mg1 = builder.addInner(2, node_class=MergeConcatNode)
     enc1 = builder.addInner([[3]])
     out1 = builder.addOutput()
-    builder.addDirectedLink(in1, enc1)
-    builder.addDirectedLink(in2, enc1,)
+    builder.addDirectedLink(in1, mg1, islot=0)
+    builder.addDirectedLink(in2, mg1, islot=1)
+    builder.addDirectedLink(mg1, enc1)
     builder.addDirectedLink(enc1, out1)
-    builder.build()
     
+    builder._build()
+    
+  @unittest.skipIf(False, "Skipping")
   def test_BuildModel3(self):
     """
-    Try to break it the algorithm... !!! Guess not mdrfkr.
+    Try to break it, the algorithm... !!! Guess not mdrfkr.
     """
+    print("\nTest 7: Building a more complicated Model")
     tf.reset_default_graph()
-    builder = StaticModelBuilder()
+    builder = StaticModelBuilder("BreakIt")
     in1 = builder.addInput(10)
     in2 = builder.addInput(20)
-    enc1 = builder.addInner([[3], [5]])
-    enc2 = builder.addInner([[4]])
+    enc1 = builder.addInner([3])
+    mg1 = builder.addInner(2, node_class=MergeConcatNode)
+    cl1 = builder.addInner(2, node_class=CloneNode)
+    enc2 = builder.addInner([[5]])
     out1 = builder.addOutput()
     out2 = builder.addOutput()
+    
     builder.addDirectedLink(in1, enc1)
-    builder.addDirectedLink(in2, enc2,)
-    builder.addDirectedLink(enc1, enc2, oslot=0)
-    builder.addDirectedLink(enc1, out1, oslot=1)
+    builder.addDirectedLink(in2, mg1, islot=0)
+    builder.addDirectedLink(enc1, cl1)
+    builder.addDirectedLink(cl1, mg1, oslot=0, islot=1)
+    builder.addDirectedLink(cl1, out1, oslot=1)
+    builder.addDirectedLink(mg1, enc2)
     builder.addDirectedLink(enc2, out2)
-    builder.build()
+    
+    builder._build()
 
     
 if __name__ == "__main__":

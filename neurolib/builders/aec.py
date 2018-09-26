@@ -13,8 +13,7 @@
 # limitations under the License.
 #
 # ==============================================================================
-
-from neurolib.builders.builder import StaticModelBuilder
+from neurolib.builders.static_builder import StaticModelBuilder
 
 class AECBuilder(StaticModelBuilder):
   """

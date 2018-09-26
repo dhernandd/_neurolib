@@ -13,12 +13,11 @@
 # limitations under the License.
 #
 # ==============================================================================
-import tensorflow as tf
-
 from neurolib.models.models import Model
 
 from neurolib.trainers.trainer import GDBender
 from neurolib.builders.static_builder import StaticModelBuilder
+from neurolib import cost_dict
 
 
 class NeuralNetRegression(Model):
@@ -64,12 +63,6 @@ class NeuralNetRegression(Model):
       print("\nThis is an absolute minimum requirement and NOT a guarantee that a custom "
             "model will be successfully trained (read the docs for more).")
       
-  def _check_build(self):
-    """
-    """
-    pass
-    
-  
   def _update_default_directives(self, directives):
     """
     Updates the default specs with the ones provided by the user.
@@ -79,8 +72,10 @@ class NeuralNetRegression(Model):
                        'activation_0' : 'leaky_relu',
                        'net_grow_rate_0' : 1.0,
                        'share_params' : False,
-                       'trainer' : 'gd-mse',
+                       'trainer' : 'gd',
+                       'cost' : 'mse',
                        'gd_optimizer' : 'adam'}
+    self.directives['cost'] = cost_dict[self.directives['cost']]  # @UndefinedVariable
     self.directives.update(directives)
     
   def _get_directives(self):
@@ -108,49 +103,49 @@ class NeuralNetRegression(Model):
     """
     builder = self.builder
     if builder is None:
-      builder = StaticModelBuilder()
+      self.builder = builder = StaticModelBuilder(scope=self.main_scope)
       
       enc_dirs, in_dirs, out_dirs = self._get_directives()
 
       in0 = builder.addInput(self.input_dim, name="features")
       enc1 = builder.addInner(self.output_dim, directives=enc_dirs)
-      out0 = builder.addOutput(directives=out_dirs, name="prediction")
-
-      in1 = builder.addInput(self.output_dim, directives=in_dirs, name="response")
-      out1 = builder.addOutput(directives=out_dirs, name="response")
-      
       builder.addDirectedLink(in0, enc1)
+      out0 = builder.addOutput(directives=out_dirs, name="prediction")
       builder.addDirectedLink(enc1, out0)
+
+      in1 = builder.addInput(self.output_dim, directives=in_dirs,
+                             name="input_response")
+      out1 = builder.addOutput(directives=out_dirs, name="response")
       builder.addDirectedLink(in1, out1)
     
       self._adj_list = builder.adj_list
     else:
       self._check_build()
+      builder.scope = self.main_scope
 
-    with tf.variable_scope(self.main_scope, reuse=tf.AUTO_REUSE):
-      # Build the tensorflow graph
-      builder.build()
-      self.model_graph = builder.model_graph
-      
-      for node in builder.input_nodes.values():
-        self.inputs[node.name] = node.get_outputs()[0]
-#         self.inputs.update(builder.input_nodes)
-      for node in builder.output_nodes.values():
-        self.outputs[node.name] = node.get_inputs()[0]
-      
-      self.cost = self._define_cost()
+    # Build the tensorflow graph
+    self.nodes = self.builder.nodes
+    builder._build()
+    self.model_graph = builder.model_graph
+    
+    self.cost = self._define_cost()
+    self.bender = GDBender(self.cost)
       
     self._is_built = True
-    self.bender = GDBender(self.cost)
+    
+  def _check_build(self):
+    """
+    """
+    pass
 
   def _define_cost(self):
     """
+    TODO: Is this function necessary?
     """
-    O0 = self.outputs["prediction"]
-    O1 = self.outputs["response"]
-   
-    return tf.reduce_sum((O0-O1)**2, name='mse_cost')
+    cost = self.directives['cost']
     
+    return cost(self.nodes)
+  
   def get_inputs(self):
     """
     """
@@ -181,7 +176,8 @@ class NeuralNetRegression(Model):
     self._check_dataset_correctness(dataset)
 
     train_dataset, valid_dataset, _ = self.make_datasets(dataset)
-    self.bender.train(train_dataset, valid_dataset, scope=self.main_scope, num_epochs=num_epochs)
+    self.bender.train(train_dataset, valid_dataset, scope=self.main_scope,
+                      num_epochs=num_epochs)
     
   def visualize_model_graph(self, filename="model_graph"):
     """
@@ -199,13 +195,7 @@ class NeuralNetRegression(Model):
     """
     pass
 
-class BayesianRegression(Model):
-  """
-  """
-  def __init__(self):
-    """
-    """
-    pass
+
   
   
   

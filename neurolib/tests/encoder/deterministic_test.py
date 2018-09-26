@@ -16,19 +16,46 @@
 import unittest
 import tensorflow as tf
 
-from neurolib.encoder.deterministic import DeterministicEncoding
+from neurolib.encoder.deterministic import DeterministicNode
 
 class DeterministicEncoderFullTest(tf.test.TestCase):
   """
-  """
-  def test_init(self):
+  """  
+  def setUp(self):
     """
     """
+    tf.reset_default_graph()
+  
+  @unittest.skipIf(False, "")
+  def test0_init(self):
+    """
+    """
+    print("Test 0: Initialization")
     label = 1
     
-    tf.reset_default_graph()
-    det_enc = DeterministicEncoding(label, [[3], [4]])
-    print("Label of this node:", det_enc.label)
+    det = DeterministicNode(label, [16], name="MyDet")
+    self.assertEqual(1, det.label)
+    name = det.get_name()
+    print("This node's name:", name)
+
+  @unittest.skipIf(False, "")
+  def test1_build(self):
+    """
+    """
+    print("Test 1: Build")    
+    
+    label = 1
+    det = DeterministicNode(label, [16], name="MyDet")
+    self.assertEqual(1, det.label)
+    
+    # Manually fill the _islot_to_itensor dict
+    X = tf.placeholder(tf.float32, [1, 4], 'my_pl')
+    det._islot_to_itensor[0] = X
+    
+    det._build()
+    self.assertEqual(True, det._is_built)
+    self.assertEqual(det._oslot_to_otensor[0].shape.as_list()[-1],
+                     16, "Shape not defined correctly")
     
     
 if __name__ == '__main__':

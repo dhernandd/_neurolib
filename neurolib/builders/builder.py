@@ -15,38 +15,70 @@
 # ==============================================================================
 import abc
 
+import pydot
+
+from neurolib.encoder.deterministic import DeterministicNode
+
+def check_name(f):
+  def f_checked(obj, *args, **kwargs):
+    if 'name' in kwargs:
+      if kwargs['name'] in obj.nodes:
+        raise AttributeError("The name", kwargs["name"], "already corresponds "
+                             "to a node in this graph")
+    return f(obj, *args, **kwargs)
+  
+  return f_checked
 
 
 class Builder(abc.ABC):
   """
+  An abstract class for building graphical models of Encoder nodes.
   """
-  def __init__(self):
+  def __init__(self, scope, batch_size=1):
     """
     """
-    self.encoder_nodes = {}
+    self.scope = scope
+    self.batch_size = batch_size
+    
+    self.num_nodes = 0
+    
+    # Dictionaries that map name/label to node for the three node types.
+    self.nodes = {}
     self.input_nodes = {}
     self.output_nodes = {}
-    self.num_encoder_nodes = 0
-    
-  @abc.abstractmethod
-  def addInput(self, output_shape, name=None, directives={}):
-    """
-    """
-    raise NotImplementedError("Builders must implement addInput")
+    self._label_to_node = {}
 
-  @abc.abstractmethod
-  def addInner(self, output_shapes, name=None, node_class=None,
+    # The graph of the model
+    self.model_graph = pydot.Dot(graph_type='digraph')
+
+  @check_name
+  def addInner(self, *main_params, name=None, node_class=DeterministicNode,
                directives={}):
     """
     Adds an InnerNode to the Encoder Graph
     """
-    raise NotImplementedError("Builders must implement addInner")
-
-  @abc.abstractmethod
-  def addOutput(self, name=None, directives={}):
-    """
-    """
-    raise NotImplementedError("Builders must implement addInner")
+    label = self.num_nodes
+    self.num_nodes += 1
+    enc_node = node_class(label, *main_params, builder=self, name=name,
+                          directives=directives)
+#     self.nodes[label] = enc_node
+    self.nodes[enc_node.name] = self._label_to_node[label] = enc_node
   
+    # Add properties for visualization
+    self.model_graph.add_node(enc_node.vis)
+    
+    return enc_node.name
+  
+  @abc.abstractmethod
+  def _build(self): 
+    """
+    """
+    raise NotImplementedError("Builders must implement build")
+  
+  def visualize_model_graph(self, filename="model_graph"):
+    """
+    Generates a representation of the computational graph
+    """
+    self.model_graph.write_png(self.scope+filename)
   
   

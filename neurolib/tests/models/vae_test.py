@@ -21,11 +21,14 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from neurolib.models.deterministic import NeuralNetRegression
-from tensorflow.contrib.layers.python.layers import fully_connected
+from neurolib.models.vae import VariationalAutoEncoder 
+# from neurolib.builders.static_builder import StaticModelBuilder
+
+testTrain = 1
 
 def make_data_iterator(data, batch_size=1, shuffle=True):
     """
+    A simple data iterator
     """
     nsamps = len(data[0])
     l_inds = np.arange(nsamps)
@@ -34,41 +37,49 @@ def make_data_iterator(data, batch_size=1, shuffle=True):
     
     for i in range(0, nsamps, batch_size):
         yield [ d[l_inds[i:i+batch_size]] for d in data ]
-        
-class DeterministicCodeFullTest(tf.test.TestCase):
+
+class VAEFullTest(tf.test.TestCase):
   """
   TODO: Write these in terms of self.Assert...
   """  
-  @unittest.skip("Skipping")
+  def setUp(self):
+    """
+    """
+    tf.reset_default_graph()
+    
+  @unittest.skipIf(testTrain, "Skipping") 
   def test_init(self):
     """
     """
-    tf.reset_default_graph()
-    NeuralNetRegression(input_dim=10, output_dim=1)
+    VariationalAutoEncoder(input_dim=3, output_dim=10)
     
-  @unittest.skip("Skipping")
+  @unittest.skipIf(testTrain, "Skipping")
   def test_build(self):
     """
     """
-    tf.reset_default_graph()
-    dc = NeuralNetRegression(input_dim=10, output_dim=1)
+    dc = VariationalAutoEncoder(input_dim=3, output_dim=10)
     dc.build()
-#     dc.visualize_graph()
-    
-#   @unittest.skip("Skipping")
+#     dc.visualize_model_graph()
+
+  @unittest.skipIf(not testTrain, "Skipping")
   def test_train(self):
     """
     """
-    x = 10.0*np.random.randn(100, 2)
-    y = x[:,0:1] + 1.5*x[:,1:]# + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
-    dataset = {'train_features' : x,
-               'train_response' : y}
+    nsamps = 100
+    idim = 3
+    odim = 10
+    x = 1.0*np.random.randn(nsamps, idim)
+    W = np.random.randn(3, odim)
+    y = np.tanh(np.dot(x, W) + 0.1*np.random.randn(nsamps, odim)) # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
+    dataset = {'train_response' : y}
     
-    tf.reset_default_graph()
-    dc = NeuralNetRegression(input_dim=2, output_dim=1)
-    dc.build()
-    dc.train(dataset, num_epochs=10)
-    
+    vae = VariationalAutoEncoder(input_dim=3, output_dim=10)
+    vae.build()
+    vae.train(dataset, num_epochs=500)
+
+
+
 
 if __name__ == '__main__':
   tf.test.main()
+  

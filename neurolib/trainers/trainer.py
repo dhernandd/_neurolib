@@ -99,26 +99,26 @@ class GDBender(ModelBender):
     self.train_op = opt.apply_gradients(gradsvars, global_step=self.train_step,
                                         name='train1_op')
     
-  def update(self, sess, scope, keys_and_data):
+  def update(self, sess, keys_and_data, batch_size=1):
     """
     TODO: Get rid of the feed_dict in favor of tensorflow Queues! Add
     multithreading capabilities
     """
     keys, data = keys_and_data
-    data_iterator = make_data_iterator(data)
+    data_iterator = make_data_iterator(data, batch_size=batch_size)
     for batch in data_iterator:
       feed_dict = dict(zip(keys, batch))
-      _, cost = sess.run([self.train_op, self.cost], feed_dict=feed_dict)
-    return cost
+#       _, cost = sess.run([self.train_op, self.cost], feed_dict=feed_dict)
+      sess.run([self.train_op], feed_dict=feed_dict)
   
-  def train(self, train_dataset, valid_dataset={}, scope='', num_epochs=100):
+  def train(self, train_dataset, valid_dataset={}, num_epochs=100):
     """
     User is in charge of splitting the dataset into train, validation, etc.
     """      
     sess = get_session()
     sess.run(tf.global_variables_initializer())
     for _ in range(num_epochs):
-      loss = self.update(sess, scope, tuple(zip(*train_dataset.items())) )
+      loss = self.update(sess, tuple(zip(*train_dataset.items()) ) )
       print(loss)
       
     sess.close()

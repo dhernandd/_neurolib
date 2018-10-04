@@ -13,23 +13,29 @@
 # limitations under the License.
 #
 # ==============================================================================
+import numpy as np
+import tensorflow as tf
+
 from neurolib.models.models import Model
 
 from neurolib.trainers.trainer import GDBender
 from neurolib.builders.static_builder import StaticModelBuilder
 from neurolib import cost_dict
 from neurolib.encoder.normal import NormalTriLNode
+from neurolib.utils.graphs import get_session
 
 
 class VariationalAutoEncoder(Model):
   """
   The Static Variational Autoencoder.   
   """
-  def __init__(self, input_dim=None, output_dim=None, directives={}, builder=None):
+  def __init__(self, input_dim=None, output_dim=None, directives={},
+               builder=None, batch_size=None):
     """
     """
     self.input_dim = input_dim
     self.output_dim = output_dim
+    self.batch_size = batch_size
     self._update_default_directives(directives)
     
     # The main scope for this model. 
@@ -103,23 +109,21 @@ class VariationalAutoEncoder(Model):
     dirs = self.directives
     builder = self.builder
     if builder is None:
-      self.builder = builder = StaticModelBuilder(scope=self.main_scope)
+      self.builder = builder = StaticModelBuilder(scope=self.main_scope,
+                                                  batch_size=self.batch_size)
       
-#       i0 = builder.addInput(self.input_dim, name='gen_features', directives={})
       enc0 = builder.addInner(self.output_dim, name='Generative',
                               node_class=dirs['node_class'],
                               directives=dirs)
-#       o0 = builder.addOutput(name='gen_response', directives={})
 # 
       i1 = builder.addInput(self.output_dim, name='response', directives={})
       enc1 = builder.addInner(self.input_dim, name='Recognition',
                               node_class=dirs['node_class'],
                               directives=dirs)
-      o1 = builder.addOutput(name='copy', directives={})
+      o1 = builder.addOutput(name='copy')
 
       builder.addDirectedLink(i1, enc1)
       builder.addDirectedLink(enc1, enc0, oslot=0)
-#       builder.addDirectedLink(i1, enc1)
       builder.addDirectedLink(enc0, o1, oslot=0)      
     
       self._adj_list = builder.adj_list
@@ -179,7 +183,7 @@ class VariationalAutoEncoder(Model):
     """
     self.bender.update(dataset)
   
-  def train(self, dataset, num_epochs=100):
+  def train(self, dataset, num_epochs=100, batch_size=1):
     """
     Trains the model. 
     
@@ -192,10 +196,21 @@ class VariationalAutoEncoder(Model):
     where # is the number of the corresponding Input node, see model graph.
     """
     self._check_dataset_correctness(dataset)
-    train_dataset, valid_dataset, _ = self.make_datasets(dataset)
+    train_dataset, _, _ = self.make_datasets(dataset)
 
-    self.bender.train(train_dataset, valid_dataset, scope=self.main_scope,
-                      num_epochs=num_epochs)
+    sess = get_session()
+    sess.run(tf.global_variables_initializer())
+#     assert False
+    for _ in range(num_epochs):
+      self.bender.update(sess,
+                         tuple(zip(*train_dataset.items())),
+                         batch_size=batch_size)
+      cost = np.mean(sess.run([self.cost], feed_dict=train_dataset))
+      print(cost)
+      
+    sess.close()
+#     self.bender.train(train_dataset, valid_dataset, scope=self.main_scope,
+#                   num_epochs=num_epochs)
     
   def visualize_model_graph(self, filename="model_graph"):
     """

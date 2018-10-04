@@ -37,3 +37,4 @@ for dist_name in sorted(dir(_distributions)):
 __all__ = ["MultivariateNormalTriL"]
 
 # print(sorted(globals().keys()))
+# print(type(globals()['Beta']))

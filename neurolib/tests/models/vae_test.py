@@ -72,11 +72,10 @@ class VAEFullTest(tf.test.TestCase):
     W = np.random.randn(3, odim)
     y = np.tanh(np.dot(x, W) + 0.1*np.random.randn(nsamps, odim)) # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_response' : y}
-    
+        
     vae = VariationalAutoEncoder(input_dim=3, output_dim=10)
     vae.build()
-    vae.train(dataset, num_epochs=500)
-
+    vae.train(dataset, num_epochs=500, batch_size=1)
 
 
 

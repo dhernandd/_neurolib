@@ -60,8 +60,6 @@ class NormalTriLNode(EncoderNode):
 
     self._declare_secondary_outputs()
     
-    self.commit()
-          
   def _declare_secondary_outputs(self):
     """
     """
@@ -115,14 +113,6 @@ class NormalTriLNode(EncoderNode):
       raise AttributeError("Attribute num_outputs of NormalTriLNode must "
                            "should not be greather than ", self.num_expected_outputs)
     self._num_declared_outputs = value
-    
-  def commit(self):
-    """
-    """
-    pass
-#     if self.num_outputs > self.num_expected_outputs:
-#       raise ValueError("self.num_outputs != self.num_expected_outputs "
-#                        "at time of commit")
 
   def _build(self, inputs=None):
     """
@@ -161,8 +151,14 @@ class NormalTriLNode(EncoderNode):
         num_nodes = int(num_nodes*net_grow_rate)
         hid_layer = fully_connected(hid_layer, num_nodes, activation_fn=activation,
           biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
-      output_chol = fully_connected(hid_layer, output_dim**2, activation_fn=tf.nn.softplus)
-    output_chol = tf.reshape(output_chol, shape=[1, output_dim, output_dim])
+      output_chol = fully_connected(hid_layer, output_dim**2,
+          activation_fn=None,
+          weights_initializer = tf.random_normal_initializer(stddev=1e-4),
+#           normalizer_fn=lambda x : x/tf.sqrt(x**2),
+          biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(output_dim**2)))
+    output_chol = tf.reshape(output_chol, 
+#                              shape=[self.batch_size, output_dim, output_dim])
+                             shape=[-1, output_dim, output_dim])
 
     if 'output_mean_name' in self.directives:
       mean_name = self.directives['output_mean_name']
@@ -173,7 +169,7 @@ class NormalTriLNode(EncoderNode):
     else:
       cholesky_name = 'CholTril_' + str(self.label) + '_0'
     
-    cholesky_tril = tf.matrix_band_part(output_chol, -1, 0, name=cholesky_name)
+    cholesky_tril = tf.identity(output_chol, name=cholesky_name)
     
     # Get the tensorflow distribution for this node
     self.dist = MultivariateNormalTriL(loc=mean, scale_tril=cholesky_tril)

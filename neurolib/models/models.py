@@ -98,8 +98,6 @@ class Model(abc.ABC):
   def make_datasets(self, dataset):
     """
     Splits the dataset dictionary into train, validation and test datasets.
-    
-    TODO:
     """
     scope = self.main_scope
     train_dataset = {}

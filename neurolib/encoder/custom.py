@@ -17,7 +17,7 @@ import tensorflow as tf
 
 import pydot
 
-from neurolib.encoder.encoder import ANode
+from neurolib.encoder.anode import ANode
 from neurolib.encoder.deterministic import DeterministicNode
 
 class CustomEncoderNode(ANode):

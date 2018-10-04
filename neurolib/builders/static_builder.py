@@ -19,16 +19,21 @@ import pydot
 import tensorflow as tf
 
 from neurolib.builders.builder import Builder
-from neurolib.encoder.basic import InputNode, OutputNode
+# from neurolib.encoder.basic import OutputNode
 from neurolib.encoder.deterministic import DeterministicNode
 from neurolib.encoder.normal import NormalTriLNode
-from neurolib.encoder.encoder import ANode
+from neurolib.encoder.anode import ANode
 from neurolib.encoder.custom import CustomEncoderNode
+from neurolib.encoder.input import PlaceholderInputNode
+from neurolib.encoder.output import OutputNode
 
 bayesian_nodes = [NormalTriLNode]
 
 
 def check_name(f):
+  """
+  Decorator to check whether a node name is already in use
+  """
   def f_checked(obj, *args, **kwargs):
 #     print("'name' in kwargs", 'name' in kwargs)
     if 'name' in kwargs:
@@ -80,32 +85,36 @@ class StaticModelBuilder(ModelBuilder):
     self.model_graph = pydot.Dot(graph_type='digraph')
   
   @check_name
-  def addInput(self, output_shape, name=None, directives={}):
+  def addInput(self, output_shape, name=None, directives={},
+               iclass=None):
     """
     Adds an InputNode to the Encoder Graph
     """
     label = self.num_nodes
     self.num_nodes += 1
-    in_node = InputNode(label, output_shape, batch_size=self.batch_size,
-                        name=name, directives=directives)
-#     self.input_nodes[label] = self.nodes[label] = in_node
+    if iclass is None:
+      inodeclass = PlaceholderInputNode
+#     else:
+#       inodeclass = inodeclass_dict[iclass]
+    
+    in_node = inodeclass(label, output_shape, batch_size=self.batch_size,
+                         name=name, directives=directives)
     name = in_node.name
     self.input_nodes[name] = self.nodes[name] = self._label_to_node[label] = in_node
     
     # Add properties for visualization
     self.model_graph.add_node(in_node.vis)
 
-#     return in_node.label
     return name
     
   @check_name
-  def addOutput(self, name=None, directives={}):
+  def addOutput(self, name=None):
     """
     Adds an OutputNode to the Encoder Graph
     """
     label = self.num_nodes
     self.num_nodes += 1
-    out_node = OutputNode(label, name=name, directives=directives)
+    out_node = OutputNode(label, name=name)
 #     self.output_nodes[label] = self.nodes[label] = out_node
     name = out_node.name
     self.output_nodes[name] = self.nodes[name] = self._label_to_node[label] = out_node
@@ -226,9 +235,9 @@ class StaticModelBuilder(ModelBuilder):
     if callable(update):
       node2._update_when_linked_as_node2()
 
-    # Initialize _visited_parents for the child node. This is used in the build
+    # Initialize _built_parents for the child node. This is used in the build
     # algorithm below.
-    node2._visited_parents[node1.label] = False
+    node2._built_parents[node1.label] = False
       
   def _check_items_do_exist(self):
     """
@@ -311,21 +320,11 @@ class StaticModelBuilder(ModelBuilder):
           # Build the tensorflow graph for this Encoder
           print("_islot_to_itensor", cur_node._islot_to_itensor)
           cur_node._build()
-          
-          # TODO: If the node is an input or an output, add it to the Model's lists
-          if isinstance(cur_node, InputNode):
-            pass
-  #           self.inputs[input_slots] = (cur_node.get_outputs())
-  #           input_slots += 1
-          if isinstance(cur_node, OutputNode):
-            pass
-  #           self.outputs[output_slots] = (cur_node.get_input())
-  #           output_slots += 1
-          
+                    
           # Go over the current node's children
           for child_label in self.adj_list[cur_node_label]:
             child_node = self._label_to_node[child_label]
-            child_node._visited_parents[cur_node_label] = True
+            child_node._built_parents[cur_node_label] = True
             
             # Get islot and oslot
             oslot = cur_node._child_to_oslot[child_label]
@@ -346,9 +345,9 @@ class StaticModelBuilder(ModelBuilder):
               continue
             
             # A child only gets added to the queue, i.e. ready to be built, once
-            # all its parents have been visited ( and hence, produced the
+            # all its parents have been built ( and hence, produced the
             # necessary inputs )
-            if all(child_node._visited_parents.items()):
+            if all(child_node._built_parents.items()):
               queue.append(child_node.label)
     
     print('Finished building')

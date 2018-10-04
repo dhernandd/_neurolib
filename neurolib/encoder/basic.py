@@ -16,81 +16,8 @@
 import pydot
 import tensorflow as tf
 
-from neurolib.encoder.encoder import ANode
-
-
-class InputNode(ANode):
-  """
-  An InputNode represents a source of information in the Encoder graph. It is a
-  node with 0 inputs and exactly 1 output. 
-  
-  Within a Model, InputNodes represent data to be fed to the Encoder graph. They
-  map to tensorflow's placeholders.
-    
-  Class attributes:
-    num_expected_outputs = 1
-    num_expected_inputs = 0
-  """
-  num_expected_inputs = 0
-  num_expected_outputs = 1
-  
-  def __init__(self, label, output_shape, name=None, batch_size=1, directives={}):
-    """
-    """
-    self.name = "In_" + str(label) if name is None else name
-    self.directives = directives
-    self.batch_size = batch_size
-    
-    # Deal with several possible types of inputs
-    if isinstance(output_shape, int):
-      output_shape = [batch_size] + [output_shape]
-    elif isinstance(output_shape, list):
-      output_shape = [batch_size] + output_shape
-    else:
-      raise ValueError("The output_shape of an InputNode must be an int or "
-                       "a list of ints")
-    self.output_shape = output_shape
-    
-    # Initialize the Encoder dictionaries
-    super(InputNode, self).__init__(label)
-
-    # Update _oslot_to_shape
-    self._oslot_to_shape[0] = output_shape
-#     self._num_declared_outputs = 1
-    
-    # Add visualization
-    self.vis = pydot.Node(self.name)
-  
-  @ANode.num_inputs.setter
-  def num_inputs(self, value):
-    """
-    """
-    raise AttributeError("Assignment to attribute num_inputs of InputNode is "
-                         " disallowed. num_inputs is set to 0 for an InputNode")
-
-  @ANode.num_outputs.setter
-  def num_outputs(self, value):
-    """
-    """
-    if value > self.num_expected_outputs:
-      raise AttributeError("Attribute num_outputs of InputNodes must be either 0 "
-                           "or 1")
-    self._num_declared_outputs = value
-  
-  def _build(self):
-    """
-    Builds an Input Node.
-    
-    A) Update _oslot_to_otensor
-    """
-    name = self.name
-    out_shape = self.output_shape
-    
-    # Stage A
-    self._oslot_to_otensor[0] = tf.placeholder(tf.float32, shape=out_shape,
-                                               name=name)
-    
-    self._is_built = True 
+from neurolib.encoder import _globals as dist_dict
+from neurolib.encoder.anode import ANode
 
 
 class OutputNode(ANode):
@@ -302,5 +229,7 @@ class CloneNode(ANode):
     for oslot in range(self.num_expected_outputs):
       self._oslot_to_shape[oslot] = self._islot_to_shape[0]
     
-    
+
+if __name__ == '__main__':
+  print(dist_dict)
     

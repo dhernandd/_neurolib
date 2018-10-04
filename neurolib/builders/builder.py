@@ -60,7 +60,7 @@ class Builder(abc.ABC):
     label = self.num_nodes
     self.num_nodes += 1
     enc_node = node_class(label, *main_params, builder=self, name=name,
-                          directives=directives)
+                          directives=directives, batch_size=self.batch_size)
 #     self.nodes[label] = enc_node
     self.nodes[enc_node.name] = self._label_to_node[label] = enc_node
   

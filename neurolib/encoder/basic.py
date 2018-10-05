@@ -18,121 +18,73 @@ import tensorflow as tf
 
 from neurolib.encoder import _globals as dist_dict
 from neurolib.encoder.anode import ANode
+    
 
-
-class OutputNode(ANode):
+class InnerNode(ANode):
   """
-  An OutputNode represents a sink in the Encoder graph. It is a
-  node with exactly 1 input and zero outputs. 
+  An InnerNode is a node that is not an OutputNode nor an InputNode. InnerNodes
+  have num_inputs > 0 and num_outputs > 0. Its outputs can be deterministic, as
+  in the DeterministicNNNode, or stochastic, as in the NormalTriLNode. 
   
-  The _build method of an OutputNode does little. An important function is to
-  rename the incoming tensor, using tf.identity, to the name required by the
-  Trainer object. Another important role of OutputNodes is to provide
-  termination conditions for the BFS algorithm that builds the Encoder Graph.
-  
-  Some InnerNodes, for instance stochastic ones - InnerNodes that represent an
-  encoding as a random variable - typically add OutputNodes automatically,
-  corresponding to the order statistics of the involved distribution. A Normal
-  EncoderNode for instance would automatically addOutputNodes for the mean and
-  standard deviation.
+  Some InnerNodes are utility nodes, their purpose being to stitch together
+  other InnerNodes into the Model graph (MG). This is the case for instance of
+  the MergeConcatNode and the CloneNode.  
   """
-  num_expected_inputs = 1
-  num_expected_outputs = 0
-  
-  def __init__(self, label, name=None, directives={}):
+  def __init__(self, label):
     """
-    """
-    self.name = "Out_" + str(label) if name is None else name
-    self.directives = directives
-#     self._num_declared_outputs = 0
+    Initialize the InnerNode
     
-    # Initialize the Encoder dictionaries
-    super(OutputNode, self).__init__(label)
-    
-    # Add visualization
-    self.vis = pydot.Node(self.name)
-
-  @ANode.num_inputs.setter
-  def num_inputs(self, value):
+    Args:
+      label (int): A unique integer identifier for the node
     """
-    """
-    if value > self.num_expected_inputs:
-      raise AttributeError("Attribute num_inputs of OutputNodes must be either 0 "
-                           "or 1")
-    self._num_declared_inputs = value
-
-  @ANode.num_outputs.setter
-  def num_outputs(self, value):
-    """
-    """
-    raise AttributeError("Assignment to attribute num_outputs of OutputNodes is "
-                         " disallowed. num_outputs is set to 0 for an OutputNode")
-    
-  def _build(self):
-    """
-    Builds the tensorflow ops corresponding to this OutputNode.
-    
-    A) Rename the input tensor
-    
-    NOTE: The _islot_to_itensor attribute of this node has been updated during
-    the processing of the parent of this OutputNode in the BFS algorithm.
-    """
-    # Stage A
-    self._islot_to_itensor[0] = tf.identity(self._islot_to_itensor[0],
-                                            name=self.name)
-    
-    self._is_built = True
-    
-
-class EncoderNode(ANode):
-  """
-  TODO: CHANGE THE NAME, CloneNode is also "inner"
-  
-  An EncoderNode represents an encoding in the Encoder graph. It can have an
-  arbitrary number of inputs and an arbitrary number of outputs. Its outputs can
-  be Deterministic or random samples from a probability distribution. An inner
-  node is meant to represent a change of codes.  
-  """
-  def __init__(self, label, main_output_shapes):
-    """
-    """
-    super(EncoderNode, self).__init__(label)
-    
-    # TODO: Remove this, it is useless
-    if isinstance(main_output_shapes, int):
-      main_output_shapes = [[main_output_shapes]]
-    self.main_output_shapes = main_output_shapes
-          
+    super(InnerNode, self).__init__(label)
+              
     # Add visualization
     self.vis = pydot.Node(self.name, shape='box')
       
 
-class MergeConcatNode(ANode):
+class MergeConcatNode(InnerNode):
   """
+  A MergeConcatNode merges its inputs by concatenation to produce a single
+  output.
+  
+  A MergeConcatNode has an arbitrary number of inputs n. n is specified at
+  initialization.
+  
+  Class attributes:
+    _requres_builder = False
+    num_expected_outputs = 1
   """
+  _requires_builder = False
   num_expected_outputs = 1
   
-  def __init__(self, label, num_mergers=2, axis=1, name=None,
-               builder=None, directives={}):
+  def __init__(self, label, num_mergers, axis, name=None):
     """
+    Initialize a MergeConcatNode
+    
+    Args:
+      label (int): A unique integer identifier for the node
+      
+      num_mergers (int): The number of inputs to be concatenated
+      
+      axis (int): The axis to concatenate
+      
+      name (str): A unique string identifier for this node
     """
     self.label = label
     super(MergeConcatNode, self).__init__(label)
-    self.builder = builder
-    self.directives = directives
     
     self.num_expected_inputs = self.num_mergers = num_mergers
     self.axis = axis
     self.name = "Concat_" + str(label) if name is None else name
     
-    self._num_declared_outputs = 1
     # Add visualization
     self.vis = pydot.Node(self.name, shape='box')
-
     
   @ANode.num_inputs.setter
   def num_inputs(self, value):
     """
+    Setter for self.num_inputs
     """
     if value > self.num_expected_inputs:
       raise AttributeError("Attribute num_inputs of this MergeConcatNode must be "
@@ -142,59 +94,125 @@ class MergeConcatNode(ANode):
   @ANode.num_outputs.setter
   def num_outputs(self, value):
     """
+    Setter for self.num_outputs
     """
     if value > self.num_expected_outputs:
       raise AttributeError("Attribute num_outputs of this CloneNode must be "
                            "at most", self.num_expected_outputs)
     self._num_declared_outputs = value
     
+  def _update_when_linked_as_node2(self):
+    """
+    Compute the output shape from the inputs and assign to _oslot_to_shape[0]
+    
+    NOTE: Before building a node the shapes of all directed edges should be
+    specified. That is, the dictionaries _islot_to_shape and _oslot_to_shape
+    must be filled for all islots and oslots of the graph nodes. If an oshape
+    cannot be provided at node initialization but needs to be inferred from the
+    node's inputs, then this method is called by the Builder to do so after
+    declaration of the directed link
+    """
+    if self.num_inputs == self.num_expected_inputs:
+      s = 0
+      oshape = list(self._islot_to_shape[0])
+#       print('oshape concat:', oshape)
+      for islot in range(self.num_expected_inputs):
+#         print('islot, shape', islot, self._islot_to_shape[islot])
+        s += self._islot_to_shape[islot][self.axis]
+#         print('s', s)
+      oshape[self.axis] = s
+#       print('final oshape concat:', oshape)
+    
+      self._oslot_to_shape[0] = oshape
+      
   def _build(self):
     """
+    Build the MergeConcatNode
+    
+    Concatenate the inputs along self.axis and assign to oslot=0
     """
     values = list(self._islot_to_itensor.values())
     self._oslot_to_otensor[0] = tf.concat(values, axis=self.axis)
     
     self._is_built = True
-    
-  def _update_when_linked_as_node2(self):
-    """
-    """
-    if self.num_inputs == self.num_expected_inputs:
-      s = 0
-      oshape = list(self._islot_to_shape[0])
-      print('oshape concat:', oshape)
-      for islot in range(self.num_expected_inputs):
-        print('islot, shape', islot, self._islot_to_shape[islot])
-        s += self._islot_to_shape[islot][self.axis]
-        print('s', s)
-      oshape[self.axis] = s
-      print('final oshape concat:', oshape)
-    
-      self._oslot_to_shape[0] = oshape
-    
+
     
 class CloneNode(ANode):
   """
+  A CloneNode clones a single input to produce many identical outputs.
+
+  A CloneNode has an arbitrary number of outputs n. n must specified at
+  initialization.
+  
+  Class attributes:
+    _requres_builder = False
+    num_expected_inputs = 1
+
   """
+  _requires_builder = False
   num_expected_inputs = 1
   
-  def __init__(self, label, num_clones=2, name=None, builder=None, directives={}):
+  def __init__(self, label, num_clones, name=None):
     """
+    Initialize a CloneNode
+    
+    Args:
+      label (int): A unique integer identifier for the node
+      
+      num_clones (int): The number of outputs to produce
+      
+      name (str): A unique string identifier for this node
     """
     self.label = label
     super(CloneNode, self).__init__(label)
     
-    self.directives = directives
-    self.builder = builder
     self.num_clones = self.num_expected_outputs = num_clones
     
     self.name = "Clone_" + str(label) if name is None else name
 
     # Add visualization
     self.vis = pydot.Node(self.name, shape='box')
+
+  @ANode.num_inputs.setter
+  def num_inputs(self, value):
+    """
+    Setter for self.num_inputs
+    """
+    if value > self.num_expected_inputs:
+      raise AttributeError("Attribute num_inputs of CloneNodes must be either 0 "
+                           "or 1")
+    self._num_declared_inputs = value
+
+  @ANode.num_outputs.setter
+  def num_outputs(self, value):
+    """
+    Setter for self.num_outputs
+    """
+    if value > self.num_expected_outputs:
+      raise AttributeError("Attribute num_outputs of this CloneNode must be "
+                           "at most", self.num_expected_outputs)
+    self._num_declared_outputs = value
+    
+  def _update_when_linked_as_node2(self):
+    """
+    Fill _oslot_to_shape with shape clones of the input  
+    
+    NOTE: Before building a node the shapes of all directed edges should be
+    specified. That is, the dictionaries _islot_to_shape and _oslot_to_shape
+    must be filled for all islots and oslots of the graph nodes. If an oshape
+    cannot be provided at node initialization but needs to be inferred from the
+    node's inputs, then this method is called by the Builder to do so after
+    declaration of the directed link
+    """
+    for oslot in range(self.num_expected_outputs):
+      self._oslot_to_shape[oslot] = self._islot_to_shape[0]
     
   def _build(self):
     """
+    Build the CloneNode
+    
+    Clone the input self.num_clones times and assign each clone to a different
+    oslot
     """
     x_in = self._islot_to_itensor[0]
     for _ in range(self.num_clones):
@@ -205,30 +223,6 @@ class CloneNode(ANode):
     
     self._is_built = True
 
-  @ANode.num_inputs.setter
-  def num_inputs(self, value):
-    """
-    """
-    if value > self.num_expected_inputs:
-      raise AttributeError("Attribute num_inputs of CloneNodes must be either 0 "
-                           "or 1")
-    self._num_declared_inputs = value
-
-  @ANode.num_outputs.setter
-  def num_outputs(self, value):
-    """
-    """
-    if value > self.num_expected_outputs:
-      raise AttributeError("Attribute num_outputs of this CloneNode must be "
-                           "at most", self.num_expected_outputs)
-    self._num_declared_outputs = value
-    
-  def _update_when_linked_as_node2(self):
-    """
-    """
-    for oslot in range(self.num_expected_outputs):
-      self._oslot_to_shape[oslot] = self._islot_to_shape[0]
-    
 
 if __name__ == '__main__':
   print(dist_dict)

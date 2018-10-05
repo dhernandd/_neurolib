@@ -200,7 +200,6 @@ class VariationalAutoEncoder(Model):
 
     sess = get_session()
     sess.run(tf.global_variables_initializer())
-#     assert False
     for _ in range(num_epochs):
       self.bender.update(sess,
                          tuple(zip(*train_dataset.items())),

@@ -14,33 +14,52 @@
 #
 # ==============================================================================
 import tensorflow as tf
-from tensorflow.contrib.layers.python.layers import fully_connected
 
-from neurolib.encoder.basic import EncoderNode
-
-act_fn_dict = {'relu' : tf.nn.relu,
-               'leaky_relu' : tf.nn.leaky_relu}
+from neurolib.encoder.basic import InnerNode
+from neurolib.encoder import act_fn_dict, layers_dict
 
 
-class DeterministicNode(EncoderNode):
+class DeterministicNNNode(InnerNode):
   """
+  A DeterministicNNNode (Neural Net) is a deterministic mapping with a single
+  input a single output. It is the simplest node that embodies a transformation
+  to the way information is represented.
+  
+  
+  Class attributes:
+    num_expected_inputs = 1
+    num_expected_outputs = 1    
   """
+  _requires_builder = False
   num_expected_inputs = 1
   num_expected_outputs = 1
   
-  def __init__(self, label, output_shape, builder=None, batch_size=1,
-               name=None, directives={}):
+  def __init__(self, label, output_shape, batch_size=None,
+               name=None, **dirs):
     """
-    TODO: The user should be able to pass a tensorflow graph directly. In that
-    case, EncoderNode should act as a simple wrapper that returns the input and the
-    output.
+    Initialize a DeterministicNNNode.
+    
+    Args:
+      label (int): A unique integer identifier for the node
+      
+      output_shape (int or list of ints): The shape of the output encoding.
+          This excludes the 0th dimension - batch size - and the 1st dimension
+          when the data is a sequence - number of steps
+          
+      name (str): A unique string identifier for this node
+    
+      batch_size (int): The output batch size. Set to None by default
+          (unspecified batch_size)
+          
+      builder (Builder): An instance of Builder necessary to declare the
+          secondary output nodes
+          
+      dirs (dict): A set of user specified directives for constructing this
+          node
     """
     self.name = "Det_" + str(label) if name is None else name
-    self.builder = builder
-    super(DeterministicNode, self).__init__(label,
-                                                main_output_shapes=output_shape)
+    super(DeterministicNNNode, self).__init__(label)
     
-    self.num_outputs = 1
     if isinstance(output_shape, int):
       output_shape = [batch_size] + [output_shape]
     elif isinstance(output_shape, list):
@@ -49,68 +68,94 @@ class DeterministicNode(EncoderNode):
       elif isinstance(output_shape[0], list):
         output_shape = [batch_size] + output_shape[0]
     else:
-      raise ValueError("The output_shape of a DeterministicNode must be an int or "
+      raise ValueError("The output_shape of a DeterministicNNNode must be an int or "
                        "a list of ints")
     self._oslot_to_shape[0] = output_shape
     
-    self._update_directives(directives)
-
-  @EncoderNode.num_inputs.setter
-  def num_inputs(self, value):
-    """
-    Sets self.num_inputs
-    """
-    if value > self.num_expected_inputs:
-      raise AttributeError("Attribute num_inputs of DeterministicNode must "
-                           "should not be greather than ", self.num_expected_inputs)
-    self._num_declared_inputs = value
-
-  @EncoderNode.num_outputs.setter
-  def num_outputs(self, value):
-    """
-    Sets self.num_outputs
-    """
-    if value > self.num_expected_outputs:
-      raise AttributeError("Attribute num_outputs of DeterministicNode must "
-                           "should not be greather than ", self.num_expected_outputs)
-    self._num_declared_outputs = value
-
+    self._update_directives(**dirs)
+    
   def _update_directives(self, directives):
     """
+    Update the node directives
     """
-    self.directives = {'num_layers_0' : 2,
-                       'num_nodes_0' : 128,
-                       'activation_0' : 'relu',
-                       'net_grow_rate_0' : 1.0}
+    self.directives = {'num_layers' : 2,
+                       'num_nodes' : 128,
+                       'activation' : 'relu',
+                       'net_grow_rate' : 1.0}
     self.directives.update(directives)
     
-    # Deal with directives that map to hidden tf objects.
-    self.directives['activation_0'] = act_fn_dict[self.directives['activation_0']]
+  @InnerNode.num_inputs.setter
+  def num_inputs(self, value):
+    """
+    Setter for self.num_inputs
+    """
+    if value > self.num_expected_inputs:
+      raise AttributeError("Attribute num_inputs of DeterministicNNNode "
+                           "should not be greather than ",
+                           self.num_expected_inputs)
+    self._num_declared_inputs = value
+
+  @InnerNode.num_outputs.setter
+  def num_outputs(self, value):
+    """
+    Setter for self.num_outputs
+    """
+    if value > self.num_expected_outputs:
+      raise AttributeError("Attribute num_outputs of DeterministicNNNode must "
+                           "should not be greather than ", self.num_expected_outputs)
+    self._num_declared_outputs = value
         
   def _build(self):
     """
-    Builds the graph corresponding to a single encoder.
+    Build the tensorflow graph.
     """
     dirs = self.directives
     
-    # At the moment, a Deterministic Node accepts only one input
     x_in = self._islot_to_itensor[0]
 
-    num_layers = dirs['num_layers_0']
-    num_nodes = dirs['num_nodes_0']
-    activation = dirs['activation_0']
-    net_grow_rate = dirs['net_grow_rate_0']
+    try:
+      if 'layers' in dirs:
+        num_layers = len(dirs['layers'])
+        layers = [layers_dict[dirs['layers'][i]] for i in range(num_layers)]
+      else:
+        num_layers = dirs['num_layers']
+        layers = [layers_dict['full'] for i in range(num_layers)]
+      if 'activations' in dirs:
+        activations = [act_fn_dict[dirs['activations'][i]] 
+                                      for i in range(num_layers)]
+      else:
+        activation = dirs['activation']
+        activations = [act_fn_dict[activation]
+                                      for i in range(num_layers-1)]
+        activations.append(None)
+      num_nodes = dirs['num_nodes']
+      net_grow_rate = dirs['net_grow_rate']
+    except AttributeError as err:
+      raise err
   
-    print("self.num_outputs", self.num_outputs)
-    # Build the neural network from dirs
-    for oslot in range(self.num_outputs):
-      output_name = self.name + '_out' + str(oslot)
-      output_dim = self._oslot_to_shape[oslot][-1] # TODO: This is only valid for 1D 
-      hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation)
-      for _ in range(num_layers-1):
-        hid_layer = fully_connected(hid_layer, int(num_nodes*net_grow_rate))
-      output = fully_connected(hid_layer, output_dim)
-      
-      self._oslot_to_otensor[oslot] = tf.identity(output, output_name) 
+    for n, layer in enumerate(layers):
+      output_dim = self._oslot_to_shape[0][-1]
+      if n == 0:
+        hid_layer = layer(x_in, num_nodes, activation_fn=activations[n])
+      elif n == num_layers-1:
+        output = layer(hid_layer, output_dim, activation_fn=activations[n])
+      else:
+        hid_layer = layer(hid_layer, int(num_nodes*net_grow_rate),
+                          activation_fn=activations[n])
+    
+    output_name = self.name + '_out'# + str(oslot)
+    self._oslot_to_otensor[0] = tf.identity(output, output_name) 
       
     self._is_built = True
+
+
+class DeterministicCustomNode(InnerNode):
+  """
+  """
+  pass
+
+
+class Deterministic2DNNNode(InnerNode):
+  """
+  """
+  pass

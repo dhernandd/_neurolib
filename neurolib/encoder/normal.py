@@ -17,14 +17,14 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.layers.python.layers import fully_connected
 
-from neurolib.encoder.basic import EncoderNode
+from neurolib.encoder.basic import InnerNode
 from neurolib.encoder import MultivariateNormalTriL  # @UnresolvedImport
 
 act_fn_dict = {'relu' : tf.nn.relu,
                'leaky_relu' : tf.nn.leaky_relu}
 
 
-class NormalTriLNode(EncoderNode):
+class NormalTriLNode(InnerNode):
   """
   """
   num_expected_inputs = 1
@@ -34,7 +34,7 @@ class NormalTriLNode(EncoderNode):
                batch_size=1, directives={}):
     """
     TODO: The user should be able to pass a tensorflow graph directly. In that
-    case, EncoderNode should act as a simple wrapper that returns the input and the
+    case, InnerNode should act as a simple wrapper that returns the input and the
     output.
     """
     self.name = "NormalTril_" + str(label) if name is None else name
@@ -94,7 +94,7 @@ class NormalTriLNode(EncoderNode):
     # Deal with directives that map to tensorflow objects hidden from the client
     self.directives['activation'] = act_fn_dict[self.directives['activation']]
 
-  @EncoderNode.num_inputs.setter
+  @InnerNode.num_inputs.setter
   def num_inputs(self, value):
     """
     Sets self.num_inputs
@@ -104,7 +104,7 @@ class NormalTriLNode(EncoderNode):
                            "should not be greather than ", self.num_expected_inputs)
     self._num_declared_inputs = value
 
-  @EncoderNode.num_outputs.setter
+  @InnerNode.num_outputs.setter
   def num_outputs(self, value):
     """
     Sets self.num_outputs

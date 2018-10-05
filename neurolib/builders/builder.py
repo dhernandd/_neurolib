@@ -17,7 +17,7 @@ import abc
 
 import pydot
 
-from neurolib.encoder.deterministic import DeterministicNode
+from neurolib.encoder.deterministic import DeterministicNNNode
 
 def check_name(f):
   def f_checked(obj, *args, **kwargs):
@@ -52,16 +52,24 @@ class Builder(abc.ABC):
     self.model_graph = pydot.Dot(graph_type='digraph')
 
   @check_name
-  def addInner(self, *main_params, name=None, node_class=DeterministicNode,
-               directives={}):
+  def addInner(self, *main_params, node_class=DeterministicNNNode, name=None,
+               **dirs):
     """
     Adds an InnerNode to the Encoder Graph
     """
     label = self.num_nodes
     self.num_nodes += 1
-    enc_node = node_class(label, *main_params, builder=self, name=name,
-                          directives=directives, batch_size=self.batch_size)
-#     self.nodes[label] = enc_node
+    
+    if node_class._requires_builder:
+      enc_node = node_class(label, *main_params, name=name,
+                            builder=self, 
+                            batch_size=self.batch_size,
+                            **dirs)
+    else:
+      enc_node = node_class(label, *main_params, name=name,
+                            batch_size=self.batch_size,
+                            **dirs)
+      
     self.nodes[enc_node.name] = self._label_to_node[label] = enc_node
   
     # Add properties for visualization

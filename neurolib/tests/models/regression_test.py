@@ -60,7 +60,7 @@ class NNRegressionFullTest(tf.test.TestCase):
     dc.build()
 #     dc.visualize_graph()
     
-  @unittest.skipIf(True, "Skipping")
+  @unittest.skipIf(False, "Skipping")
   def test_train(self):
     """
     """
@@ -71,9 +71,9 @@ class NNRegressionFullTest(tf.test.TestCase):
     
     dc = NeuralNetRegression(input_dim=2, output_dim=1)
     dc.build()
-    dc.train(dataset, num_epochs=500)
+    dc.train(dataset, num_epochs=100)
   
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(True, "Skipping")
   def test_train_custom_builder(self):
     """
     """
@@ -84,19 +84,18 @@ class NNRegressionFullTest(tf.test.TestCase):
     
     # DEFINE A BUILDER    
     builder = StaticModelBuilder()
-    enc_dirs = {'num_layers_0' : 2,
-                'num_nodes_0' : 128,
-                'activation_0' : 'leaky_relu',
-                'net_grow_rate_0' : 1.0 }
-    in_dirs, out_dirs = {}, {}
+    enc_dirs = {'num_layers' : 2,
+                'num_nodes' : 128,
+                'activation' : 'leaky_relu',
+                'net_grow_rate' : 1.0 }
     input_dim, output_dim = 2, 1
     in0 = builder.addInput(input_dim, name="features")
     enc1 = builder.addInner(10, directives=enc_dirs)
     enc2 = builder.addInner(output_dim, directives=enc_dirs)
-    out0 = builder.addOutput(directives=out_dirs, name="prediction")
+    out0 = builder.addOutput(name="prediction")
 
-    in1 = builder.addInput(output_dim, directives=in_dirs, name="input_response")
-    out1 = builder.addOutput(directives=out_dirs, name="response")
+    in1 = builder.addInput(output_dim, name="input_response")
+    out1 = builder.addOutput(name="response")
     
     builder.addDirectedLink(in0, enc1)
     builder.addDirectedLink(enc1, enc2)

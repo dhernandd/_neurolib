@@ -20,6 +20,8 @@ from tensorflow.python.framework import ops
 from tensorflow.python.ops import array_ops
 from tensorflow_probability import distributions as _distributions
 
+from tensorflow.contrib.layers.python.layers import fully_connected
+
 import inspect
 
 _globals = globals()
@@ -35,6 +37,12 @@ for dist_name in sorted(dir(_distributions)):
     del _candidate
 
 __all__ = ["MultivariateNormalTriL"]
+
+act_fn_dict = {'relu' : tf.nn.relu,
+               'leaky_relu' : tf.nn.leaky_relu}
+
+layers_dict = {'full' : fully_connected}
+
 
 # print(sorted(globals().keys()))
 # print(type(globals()['Beta']))

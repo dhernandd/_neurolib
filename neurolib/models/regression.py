@@ -13,11 +13,15 @@
 # limitations under the License.
 #
 # ==============================================================================
+import numpy as np
+import tensorflow as tf
+
 from neurolib.models.models import Model
 
 from neurolib.trainers.trainer import GDBender
 from neurolib.builders.static_builder import StaticModelBuilder
 from neurolib import cost_dict
+from neurolib.utils.graphs import get_session
 
 
 class NeuralNetRegression(Model):
@@ -92,8 +96,7 @@ class NeuralNetRegression(Model):
     """
     enc_directives = self.directives
     in_directives = {}
-    out_directives = {}
-    return enc_directives, in_directives, out_directives
+    return enc_directives, in_directives
 
   def build(self):
     """
@@ -105,17 +108,17 @@ class NeuralNetRegression(Model):
     if builder is None:
       self.builder = builder = StaticModelBuilder(scope=self.main_scope)
       
-      enc_dirs, in_dirs, out_dirs = self._get_directives()
+      enc_dirs, in_dirs = self._get_directives()
 
       in0 = builder.addInput(self.input_dim, name="features")
       enc1 = builder.addInner(self.output_dim, directives=enc_dirs)
       builder.addDirectedLink(in0, enc1)
-      out0 = builder.addOutput(directives=out_dirs, name="prediction")
+      out0 = builder.addOutput(name="prediction")
       builder.addDirectedLink(enc1, out0)
 
       in1 = builder.addInput(self.output_dim, directives=in_dirs,
                              name="input_response")
-      out1 = builder.addOutput(directives=out_dirs, name="response")
+      out1 = builder.addOutput(name="response")
       builder.addDirectedLink(in1, out1)
     
       self._adj_list = builder.adj_list
@@ -161,7 +164,7 @@ class NeuralNetRegression(Model):
     """
     self.bender.update(dataset)
   
-  def train(self, dataset, num_epochs=100):
+  def train(self, dataset, num_epochs=100, batch_size=1):
     """
     Trains the model. 
     
@@ -173,11 +176,22 @@ class NeuralNetRegression(Model):
     
     where # is the number of the corresponding Input node, see model graph.
     """
+#     self._check_dataset_correctness(dataset)
+# 
+#     train_dataset, valid_dataset, _ = self.make_datasets(dataset)
+#     self.bender.train(train_dataset, valid_dataset,# scope=self.main_scope,
+#                       num_epochs=num_epochs)
     self._check_dataset_correctness(dataset)
+    train_dataset, _, _ = self.make_datasets(dataset)
 
-    train_dataset, valid_dataset, _ = self.make_datasets(dataset)
-    self.bender.train(train_dataset, valid_dataset, scope=self.main_scope,
-                      num_epochs=num_epochs)
+    sess = get_session()
+    sess.run(tf.global_variables_initializer())
+    for _ in range(num_epochs):
+      self.bender.update(sess,
+                         tuple(zip(*train_dataset.items())),
+                         batch_size=batch_size)
+      cost = np.mean(sess.run([self.cost], feed_dict=train_dataset))
+      print(cost)
     
   def visualize_model_graph(self, filename="model_graph"):
     """

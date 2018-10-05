@@ -19,8 +19,7 @@ import pydot
 import tensorflow as tf
 
 from neurolib.builders.builder import Builder
-# from neurolib.encoder.basic import OutputNode
-from neurolib.encoder.deterministic import DeterministicNode
+from neurolib.encoder.deterministic import DeterministicNNNode
 from neurolib.encoder.normal import NormalTriLNode
 from neurolib.encoder.anode import ANode
 from neurolib.encoder.custom import CustomEncoderNode
@@ -76,7 +75,7 @@ class StaticModelBuilder(ModelBuilder):
   A class for building StaticModels (Models that do not involve sequential
   data).
   """
-  def __init__(self, scope=None, batch_size=1):
+  def __init__(self, scope=None, batch_size=None):
     """
     """
     super(StaticModelBuilder, self).__init__(scope, batch_size=batch_size)
@@ -115,17 +114,15 @@ class StaticModelBuilder(ModelBuilder):
     label = self.num_nodes
     self.num_nodes += 1
     out_node = OutputNode(label, name=name)
-#     self.output_nodes[label] = self.nodes[label] = out_node
     name = out_node.name
     self.output_nodes[name] = self.nodes[name] = self._label_to_node[label] = out_node
     
     # Add properties for visualization
     self.model_graph.add_node(out_node.vis)
 
-#     return out_node.label
     return name
     
-  def addDirectedLink(self, node1, node2, oslot=None, islot=None):
+  def addDirectedLink(self, node1, node2, oslot=0, islot=0):
     """
     Adds directed links to the Encoder graph. The method functions in several
     stages detailed below:
@@ -166,10 +163,20 @@ class StaticModelBuilder(ModelBuilder):
     nnodes = self.num_nodes
     if not node1._oslot_to_shape:
       if isinstance(node1, OutputNode):
-        raise ValueError("You cannot define outgoing directed links for OutputNodes")
+        raise ValueError("Outgoing directed links cannot be defined for "
+                         "OutputNodes")
       else:
-        raise ValueError("Node1 appears to have no outputs. This software has no "
-                         "clue why that would be.\n Please report to my master.")
+        raise ValueError("Node1 appears to have no outputs. This software has "
+                         "no clue why that would be.\n Please report to my "
+                         "master.")
+    elif oslot not in node1._oslot_to_shape:
+      raise KeyError("The requested oslot has not been found. Inferring this "
+                     "oslot shape may require knowledge of the shape of its "
+                     "inputs. In that case, all the inputs for this node must "
+                     "be declared")
+    if islot in node2._islot_to_shape:
+      raise AttributeError("That input slot is already occupied. Assign to "
+                           "a different islot")
 
     # Stage C
     print('Adding dlink', node1.label, ' -> ', node2.label)
@@ -209,23 +216,20 @@ class StaticModelBuilder(ModelBuilder):
                          "to the out-node is ambiguous.\n You must specify the "
                          "output slot. The declared output slots for node 1 are: ",
                          node1._oslot_to_shape)
-    else:
-      oslot = 0
+#     else:
+#       oslot = 0
     if node2.num_expected_inputs > 1:
       if islot is None:
         raise ValueError("The out-node has more than one input slot, so pairing "
                          "from the in-node is ambiguous.\n You must specify the " 
                          "input slot")
-    else:
-      islot = 0
+#     else:
+#       islot = 0
     exchanged_shape = node1._oslot_to_shape[oslot]
     node1._child_to_oslot[node2.label] = oslot
     node1.num_outputs += 1
 
     print('Exchanged shape:', exchanged_shape)
-    if islot in node2._islot_to_shape:
-      raise AttributeError("That input slot is already occupied. Assign to "
-                           "a different islot")
     node2._islot_to_shape[islot] = exchanged_shape
     node2._parent_to_islot[node1.label] = islot    
     node2.num_inputs += 1
@@ -272,7 +276,7 @@ class StaticModelBuilder(ModelBuilder):
     return self.custom_encoders[name] 
   
   def add_to_custom(self, cust, output_shapes, name=None,
-                    node_class=DeterministicNode, directives={}):
+                    node_class=DeterministicNNNode, directives={}):
     """
     """
     cust.builder.addInner(output_shapes, name=name, node_class=node_class,

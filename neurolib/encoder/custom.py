@@ -18,7 +18,7 @@ import tensorflow as tf
 import pydot
 
 from neurolib.encoder.anode import ANode
-from neurolib.encoder.deterministic import DeterministicNode
+from neurolib.encoder.deterministic import DeterministicNNNode
 
 class CustomEncoderNode(ANode):
   """
@@ -64,7 +64,7 @@ class CustomEncoderNode(ANode):
     else:
       self._num_declared_outputs = value
 
-  def addInner(self, *main_params, name=None, node_class=DeterministicNode,
+  def addInner(self, *main_params, name=None, node_class=DeterministicNNNode,
                directives={}):
     """
     """

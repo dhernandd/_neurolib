@@ -107,12 +107,17 @@ class DeterministicNNNode(InnerNode):
         
   def _build(self):
     """
-    Build the tensorflow graph.
+    Build the node
+    
+    A) Scan the directives for the properties of the feedforward network
+    
+    B) Builds the tensorflow graph from the found directives
     """
     dirs = self.directives
     
     x_in = self._islot_to_itensor[0]
 
+    # Stage A
     try:
       if 'layers' in dirs:
         num_layers = len(dirs['layers'])
@@ -133,6 +138,7 @@ class DeterministicNNNode(InnerNode):
     except AttributeError as err:
       raise err
   
+    # Stage B
     for n, layer in enumerate(layers):
       output_dim = self._oslot_to_shape[0][-1]
       if n == 0:
@@ -143,7 +149,7 @@ class DeterministicNNNode(InnerNode):
         hid_layer = layer(hid_layer, int(num_nodes*net_grow_rate),
                           activation_fn=activations[n])
     
-    output_name = self.name + '_out'# + str(oslot)
+    output_name = self.name + '_out' # + str(oslot) ?
     self._oslot_to_otensor[0] = tf.identity(output, output_name) 
       
     self._is_built = True

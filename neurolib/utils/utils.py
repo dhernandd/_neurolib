@@ -26,8 +26,10 @@ def variable_in_cpu(name, shape, initializer, collections=None):
                               collections=collections)
     return var
 
+
 def make_var_name(scope, name):
   return scope + '/' + name + ':0'
+
 
 def make_data_iterator(data, batch_size=1, shuffle=True):
     """
@@ -39,5 +41,16 @@ def make_data_iterator(data, batch_size=1, shuffle=True):
     
     for i in range(0, nsamps, batch_size):
         yield [ d[l_inds[i:i+batch_size]] for d in data ]
+
+
+def check_name(f):
+  def f_checked(obj, *args, **kwargs):
+    if 'name' in kwargs:
+      if kwargs['name'] in obj.nodes:
+        raise AttributeError("The name", kwargs["name"], "already corresponds "
+                             "to a node in this graph")
+    return f(obj, *args, **kwargs)
+  
+  return f_checked
         
         

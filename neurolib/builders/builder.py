@@ -18,24 +18,28 @@ import abc
 import pydot
 
 from neurolib.encoder.deterministic import DeterministicNNNode
-
-def check_name(f):
-  def f_checked(obj, *args, **kwargs):
-    if 'name' in kwargs:
-      if kwargs['name'] in obj.nodes:
-        raise AttributeError("The name", kwargs["name"], "already corresponds "
-                             "to a node in this graph")
-    return f(obj, *args, **kwargs)
-  
-  return f_checked
+from neurolib.utils.utils import check_name
 
 
 class Builder(abc.ABC):
   """
-  An abstract class for building graphical models of Encoder nodes.
+  An abstract class representing the Builder type. A Builder object builds
+  a single Model by taking the following steps: 
+  
+  i) adds encoder nodes to the Model graph (MG)
+  ii) defines directed links between them representing tensors
+  iii) builds a tensorflow graph from the Model graph 
+  
+  A Builder object MUST implement the method _build()
   """
-  def __init__(self, scope, batch_size=1):
+  def __init__(self, scope, batch_size=None):
     """
+    Initialize the builder
+    
+    Args:
+      scope (str): The tensorflow scope of the Model to be built
+      
+      batch_size (int): The batch size. Defaults to None (unspecified)
     """
     self.scope = scope
     self.batch_size = batch_size
@@ -55,7 +59,16 @@ class Builder(abc.ABC):
   def addInner(self, *main_params, node_class=DeterministicNNNode, name=None,
                **dirs):
     """
-    Adds an InnerNode to the Encoder Graph
+    Add an InnerNode to the Encoder Graph
+    
+    Args:
+      *main_params (list): List of mandatory params for the InnerNode
+      
+      node_class (InnerNode): class of the node
+      
+      name (str): A unique string identifier for the node being added to the MG
+      
+      dirs (dict): A dictionary of directives for the node
     """
     label = self.num_nodes
     self.num_nodes += 1
@@ -80,13 +93,14 @@ class Builder(abc.ABC):
   @abc.abstractmethod
   def _build(self): 
     """
+    Build the Model.
+    
+    Builders MUST implement this method
     """
     raise NotImplementedError("Builders must implement build")
   
   def visualize_model_graph(self, filename="model_graph"):
     """
-    Generates a representation of the computational graph
+    Generate a visual representation of the Model graph
     """
     self.model_graph.write_png(self.scope+filename)
-  
-  

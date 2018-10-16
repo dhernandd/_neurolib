@@ -37,7 +37,8 @@ class Regression(Model):
   I1[ -> d_0] => E1[d_0 -> d_1] => ... => O1[d_{n} -> ]
   
   since it has a single Input node and a single Output node. The following
-  directed acyclic graph is also a Regression model:
+  directed graph, with the input flowing towards the output through 2 different
+  encoder routes (rhombic) is also a Regression model:
   
   I1[ -> d_0] => E1[d_0 -> d_1], E2[d_0 -> d_2]
   E1[d_0 -> d_1], E2[d_0 -> d_2] => O1[d_1 + d_2 -> ]
@@ -65,12 +66,13 @@ class Regression(Model):
     
     Args:
       input_dim (int): The number of features (dimension of the input variable)
-      output_dim (int): The 
+      output_dim (int): The output dimension
+      builder (StaticBuilder): An instance of Builder used to build a custom
+          Regression model
     """
     self.input_dim = input_dim
     self.output_dim = output_dim
     
-    # The main scope for this model. 
     self._main_scope = 'Regression'
 
     super(Regression, self).__init__()
@@ -79,10 +81,9 @@ class Regression(Model):
     if builder is not None:
       self._help_build()
     else:
-      if input_dim is None or output_dim is None:
-        raise ValueError("Both the input dimension (in_dims) and the output "
-                         "dimension (out_dims) are necessary in order to "
-                         "specify build the default Regression.")
+      if input_dim is None:
+        raise ValueError("Argument input_dim is required to build the default "
+                         "Regression")
       elif output_dim > 1:
         raise NotImplementedError("Multivariate regression is not implemented")
       
@@ -141,8 +142,6 @@ class Regression(Model):
     if builder is None:
       self.builder = builder = StaticBuilder(scope=self.main_scope)
       
-#       enc_dirs, in_dirs = self._get_directives()
-
       in0 = builder.addInput(self.input_dim, name="features", **dirs)
       enc1 = builder.addInner(1, self.output_dim, **dirs)
       out0 = builder.addOutput(name="prediction")
@@ -150,14 +149,13 @@ class Regression(Model):
       builder.addDirectedLink(in0, enc1)
       builder.addDirectedLink(enc1, out0)
 
-      in1 = builder.addInput(self.output_dim, name="input_response")
-      out1 = builder.addOutput(name="response")
-      builder.addDirectedLink(in1, out1)
-    
       self._adj_list = builder.adj_list
     else:
       self._check_user_build()
       builder.scope = self.main_scope
+    in1 = builder.addInput(self.output_dim, name="input_response")
+    out1 = builder.addOutput(name="response")
+    builder.addDirectedLink(in1, out1)
 
     # Build the tensorflow graph
     builder.build()

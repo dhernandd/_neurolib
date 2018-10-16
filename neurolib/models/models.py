@@ -16,16 +16,18 @@
 import abc
 from abc import abstractmethod
 
+# pylint: disable=bad-indentation, no-member, protected-access
+
 class Model(abc.ABC):
   """
-  PHILOSOPHY: Classes that inherit from the abstract class Model will be seen by
-  the client. After some thought I have decided at the moment on an architecture
-  in which Models are created through a Builder object, that has an interface
-  via which the client may add Nodes and Links as desired.
+  An abstract class for Statistical Models.
+  
+  Classes that inherit from the abstract class Model will be seen by the client.
+  Models are created through a Builder object, which in turn has an interface
+  via which the client may add Nodes and Links to the Model as desired.
    
   The Model classes should implement at the very least the following methods
   
-  _build_cost()
   train(data_train, [data_valid,...])
   sample(n_samps)
   """
@@ -58,14 +60,14 @@ class Model(abc.ABC):
     raise NotImplementedError("")
         
   @abstractmethod
-  def update(self):
+  def update(self, dataset):
     """
     TODO: Fill the exception
     """
     raise NotImplementedError("")
 
   @abstractmethod
-  def train(self):
+  def train(self, dataset, **kwargs):
     """
     TODO: Fill the exception
     """
@@ -83,18 +85,6 @@ class Model(abc.ABC):
     """
     raise NotImplementedError("")
 
-  @abstractmethod
-  def get_inputs(self):
-    """
-    """
-    raise NotImplementedError("Please implement me.")
-    
-  @abstractmethod
-  def get_outputs(self):
-    """
-    """
-    raise NotImplementedError("Please implement me.")
-  
   def make_datasets(self, dataset):
     """
     Splits the dataset dictionary into train, validation and test datasets.
@@ -112,24 +102,26 @@ class Model(abc.ABC):
       elif d_set == 'test':
         test_dataset[key] = dataset[key]
       else:
-        raise KeyError("The dataset contains the key `{}`. The only allowed prefixes "
-                       "for keys in the dataset are 'train', 'valid' and 'test'".format(key))
+        raise KeyError("The dataset contains the key `{}`. The only allowed "
+                       "prefixes for keys in the dataset are 'train', "
+                       "'valid' and 'test'".format(key))
     
     return train_dataset, valid_dataset, test_dataset
   
-  
+
 class StaticModel(Model):
   """
+  TODO: Decide if this split is needed
   """
   def __init__(self):
     """
     """
     super(StaticModel, self).__init__()
 
-  
 
 class SequentialModel():
   """
+  TODO: Decide if this split is needed
   """
   def __init__(self):
     """

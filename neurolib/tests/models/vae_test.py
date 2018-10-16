@@ -47,7 +47,7 @@ class VAEFullTest(tf.test.TestCase):
     """
     tf.reset_default_graph()
     
-  @unittest.skipIf(testTrain, "Skipping") 
+  @unittest.skipIf(testTrain, "Skipping")
   def test_init(self):
     """
     """
@@ -81,4 +81,3 @@ class VAEFullTest(tf.test.TestCase):
 
 if __name__ == '__main__':
   tf.test.main()
-  

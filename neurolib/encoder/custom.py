@@ -27,8 +27,8 @@ class CustomEncoderNode(ANode):
   def __init__(self, label, builder, scope=None):
     """
     """
-    self._node_to_islots = {}
-    self._node_to_oslots = {}
+    self._innernode_to_avlble_islots = {}
+    self._innernode_to_avlble_oslots = {}
     self._islot_to_enc_islot = {}
     self._oslot_to_enc_oslot = {}
     super(CustomEncoderNode, self).__init__(label)
@@ -42,8 +42,8 @@ class CustomEncoderNode(ANode):
     self.vis = pydot.Node(self.name)
 
     
-  @ANode.num_inputs.setter
-  def num_inputs(self, value):
+  @ANode.num_declared_inputs.setter
+  def num_declared_inputs(self, value):
     """
     """
     if self._is_committed:
@@ -53,8 +53,8 @@ class CustomEncoderNode(ANode):
     else:
       self._num_declared_inputs = value
 
-  @ANode.num_outputs.setter
-  def num_outputs(self, value):
+  @ANode.num_declared_outputs.setter
+  def num_declared_outputs(self, value):
     """
     """
     if self._is_committed:
@@ -72,27 +72,31 @@ class CustomEncoderNode(ANode):
                                         node_class=node_class,
                                         directives=directives)
     node = self._builder.nodes[node_label]
-    self._node_to_islots[node_label] = list(range(node.num_expected_inputs))
-    self._node_to_oslots[node_label] = list(range(node.num_expected_outputs))
+    
+    # Assumes fixed number of expected_inputs
+    self._innernode_to_avlble_islots[node_label] = list(
+                                    range(node.num_expected_inputs))
+    self._innernode_to_avlble_oslots[node_label] = list(
+                                    range(node.num_expected_outputs))
     
     return node.label
     
-  def addDirectedLink(self, enc1, enc2, oslot=0):
+  def addDirectedLink(self, enc1, enc2, islot=0, oslot=0):
     """
     """
     if isinstance(enc1, int):
       enc1 = self._builder.nodes[enc1]
     if isinstance(enc2, int):
       enc2 = self._builder.nodes[enc2]
-    self._builder.addDirectedLink(enc1, enc2, oslot)
+    self._builder.addDirectedLink(enc1, enc2, islot, oslot)
     
     # Remove the connected islot and oslot from the lists of available ones
-    self._node_to_oslots[enc1.label].remove(oslot)
-    self._node_to_islots[enc2.label].remove(enc2.num_inputs-1)
+    self._innernode_to_avlble_oslots[enc1.label].remove(oslot)
+    self._innernode_to_avlble_islots[enc2.label].remove(enc2.num_inputs-1)
     
   def commit(self):
     """
-    Prepares the CustomNode for building.
+    Prepare the CustomNode for building.
     
     A) 
     
@@ -101,17 +105,21 @@ class CustomEncoderNode(ANode):
     print('BEGIN COMMIT')
     # Stage A
     self.num_expected_inputs = 0
-    for node_label, islot_list in self._node_to_islots.items():
+    for node_label, islot_list in self._innernode_to_avlble_islots.items():
       if islot_list:
         node = self._builder.nodes[node_label]
         self._builder.input_nodes[node.label] = node
-        for i in range(len(islot_list)):
-          self._islot_to_enc_islot[self.num_expected_inputs] = (node, islot_list[i])
+#         for i in range(len(islot_list)):
+#           self._islot_to_enc_islot[self.num_expected_inputs] = (node, islot_list[i])
+#           self.num_expected_inputs += 1
+#         for i in range(len(islot_list)):
+        for islot in islot_list:
+          self._islot_to_enc_islot[self.num_expected_inputs] = (node, islot)
           self.num_expected_inputs += 1
         
     # Stage B
-    print('self._node_to_oslots', self._node_to_oslots)
-    for node_label, oslot_list in self._node_to_oslots.items():
+    print('self._innernode_to_avlble_oslots', self._innernode_to_avlble_oslots)
+    for node_label, oslot_list in self._innernode_to_avlble_oslots.items():
       print('oslot_list', oslot_list, bool(oslot_list))
       if oslot_list:
         node = self._builder.nodes[node_label]

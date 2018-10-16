@@ -17,9 +17,10 @@ import abc
 
 import pydot
 
-from neurolib.encoder.deterministic import DeterministicNNNode
+from neurolib.encoder.deterministic import DeterministicNNNode #@UnusedImport
 from neurolib.utils.utils import check_name
 
+# pylint: disable=bad-indentation, no-member, protected-access
 
 class Builder(abc.ABC):
   """
@@ -30,7 +31,7 @@ class Builder(abc.ABC):
   ii) defines directed links between them representing tensors
   iii) builds a tensorflow graph from the Model graph 
   
-  A Builder object MUST implement the method _build()
+  A Builder object MUST implement the method build()
   """
   def __init__(self, scope, batch_size=None):
     """
@@ -56,7 +57,9 @@ class Builder(abc.ABC):
     self.model_graph = pydot.Dot(graph_type='digraph')
 
   @check_name
-  def addInner(self, *main_params, node_class=DeterministicNNNode, name=None,
+  def addInner(self, *main_params,
+               node_class=DeterministicNNNode,
+               name=None,
                **dirs):
     """
     Add an InnerNode to the Encoder Graph
@@ -79,7 +82,8 @@ class Builder(abc.ABC):
                             batch_size=self.batch_size,
                             **dirs)
     else:
-      enc_node = node_class(label, *main_params, name=name,
+      enc_node = node_class(label, *main_params,
+                            name=name,
                             batch_size=self.batch_size,
                             **dirs)
       
@@ -91,7 +95,7 @@ class Builder(abc.ABC):
     return enc_node.name
   
   @abc.abstractmethod
-  def _build(self): 
+  def build(self): 
     """
     Build the Model.
     

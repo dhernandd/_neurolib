@@ -21,22 +21,12 @@ import unittest
 import numpy as np
 import tensorflow as tf
 
-from neurolib.models.regression import NeuralNetRegression
-from neurolib.builders.static_builder import StaticModelBuilder
+from neurolib.models.regression import Regression
+from neurolib.builders.static_builder import StaticBuilder
 
-def make_data_iterator(data, batch_size=1, shuffle=True):
-    """
-    A simple data iterator
-    """
-    nsamps = len(data[0])
-    l_inds = np.arange(nsamps)
-    if shuffle: 
-        np.random.shuffle(l_inds)
-    
-    for i in range(0, nsamps, batch_size):
-        yield [ d[l_inds[i:i+batch_size]] for d in data ]
+# pylint: disable=bad-indentation, no-member, protected-access
         
-class NNRegressionFullTest(tf.test.TestCase):
+class RegressionFullTest(tf.test.TestCase):
   """
   TODO: Write these in terms of self.Assert...
   """  
@@ -48,50 +38,53 @@ class NNRegressionFullTest(tf.test.TestCase):
   @unittest.skipIf(False, "Skipping")
   def test_init(self):
     """
+    Test initialization
     """
-    print("\nTest 0: NNRegression initialization")
-    NeuralNetRegression(input_dim=10, output_dim=1)
+    print("\nTest 0: Regression initialization")
+    Regression(input_dim=10, output_dim=1)
     
   @unittest.skipIf(False, "Skipping")
   def test_build(self):
     """
+    Test build
     """
-    dc = NeuralNetRegression(input_dim=10, output_dim=1)
+    dc = Regression(input_dim=10, output_dim=1)
     dc.build()
-#     dc.visualize_graph()
     
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(True, "Skipping")
   def test_train(self):
     """
+    Test train
     """
     x = 10.0*np.random.randn(100, 2)
     y = x[:,0:1] + 1.5*x[:,1:]# + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_features' : x,
                'train_input_response' : y}
     
-    dc = NeuralNetRegression(input_dim=2, output_dim=1)
+    dc = Regression(input_dim=2, output_dim=1)
     dc.build()
     dc.train(dataset, num_epochs=100)
   
-  @unittest.skipIf(True, "Skipping")
+  @unittest.skipIf(False, "Skipping")
   def test_train_custom_builder(self):
     """
     """
     x = 10.0*np.random.randn(100, 2)
-    y = x[:,0:1] + 1.5*x[:,1:]# + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
+    y = x[:,0:1] + 1.5*x[:,1:] # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_features' : x,
                'train_input_response' : y}
     
-    # DEFINE A BUILDER    
-    builder = StaticModelBuilder()
+    # Define a builder.
+    # Much more control on the directives of each node
+    builder = StaticBuilder()
     enc_dirs = {'num_layers' : 2,
                 'num_nodes' : 128,
                 'activation' : 'leaky_relu',
                 'net_grow_rate' : 1.0 }
     input_dim, output_dim = 2, 1
     in0 = builder.addInput(input_dim, name="features")
-    enc1 = builder.addInner(10, directives=enc_dirs)
-    enc2 = builder.addInner(output_dim, directives=enc_dirs)
+    enc1 = builder.addInner(1, 10, directives=enc_dirs)
+    enc2 = builder.addInner(1, output_dim, directives=enc_dirs)
     out0 = builder.addOutput(name="prediction")
 
     in1 = builder.addInput(output_dim, name="input_response")
@@ -102,12 +95,11 @@ class NNRegressionFullTest(tf.test.TestCase):
     builder.addDirectedLink(enc2, out0)
     builder.addDirectedLink(in1, out1)
     
-    # PASS IT TO THE MODEL INSTEAD OF THE DEFAULT
-    tf.reset_default_graph()
-    dc = NeuralNetRegression(input_dim=2, output_dim=1, builder=builder)
+    # Pass the builder object to the Regression Model
+    dc = Regression(input_dim=2, output_dim=1, builder=builder)
     dc.build()
     dc.visualize_model_graph("two_encoders.png")
-    dc.train(dataset, num_epochs=10)
+    dc.train(dataset, num_epochs=50)
     
 
 if __name__ == '__main__':

@@ -20,6 +20,7 @@ import tensorflow as tf
 
 from neurolib.utils.graphs import get_session
 
+# pylint: disable=bad-indentation, no-member, protected-access
 
 def make_data_iterator(data, batch_size=1, shuffle=True):
     """
@@ -46,14 +47,8 @@ class ModelBender(abc.ABC):
     """
     raise NotImplementedError("")
 
-  @abc.abstractmethod
-  def train(self):
-    """
-    """
-    raise NotImplementedError("")
 
-
-class GDBender(ModelBender):
+class GDTrainer(ModelBender):
   """
   TODO: This class will probably move to a file of its own. We probably want to
   leave this file only for the abstract class.
@@ -63,23 +58,28 @@ class GDBender(ModelBender):
               'momentum' : tf.train.MomentumOptimizer,
               'gd' : tf.train.GradientDescentOptimizer}
 
-  def __init__(self, cost, directives={}):
+  def __init__(self,
+               cost,
+               **dirs):
     """
+    Initialize a GDTrainer
     """
     self.cost = cost
-    self._update_default_directives(directives)
+    self._update_default_directives(**dirs)
     
     self._define_train_op()
     
-  def _update_default_directives(self, directives):
+  def _update_default_directives(self, **dirs):
     """
+    Update the default directives.
     """
     self.directives = {'optimizer' : 'adam',
-                       'lr' : 1e-5}
-    self.directives.update(directives)
+                       'lr' : 1e-4}
+    self.directives.update(dirs)
 
   def _define_train_op(self):
     """
+    Define the train op using tensorflow standard machinery.
     """
     directives = self.directives
     optimizer_class = self.opt_dict[directives['optimizer']]
@@ -101,6 +101,8 @@ class GDBender(ModelBender):
     
   def update(self, sess, keys_and_data, batch_size=1):
     """
+    Perform a single gradient descent update for the variables in this cost.
+    
     TODO: Get rid of the feed_dict in favor of tensorflow Queues! Add
     multithreading capabilities
     """
@@ -111,16 +113,18 @@ class GDBender(ModelBender):
 #       _, cost = sess.run([self.train_op, self.cost], feed_dict=feed_dict)
       sess.run([self.train_op], feed_dict=feed_dict)
   
-  def train(self, train_dataset, valid_dataset={}, num_epochs=100):
-    """
-    User is in charge of splitting the dataset into train, validation, etc.
-    """      
-    sess = get_session()
-    sess.run(tf.global_variables_initializer())
-    for _ in range(num_epochs):
-      loss = self.update(sess, tuple(zip(*train_dataset.items()) ) )
-      print(loss)
-      
-    sess.close()
+#   def train(self, train_dataset, valid_dataset={}, num_epochs=100):
+#     """
+#     
+#     
+#     User is in charge of splitting the dataset into train, validation, etc.
+#     """      
+#     sess = get_session()
+#     sess.run(tf.global_variables_initializer())
+#     for _ in range(num_epochs):
+#       loss = self.update(sess, tuple(zip(*train_dataset.items()) ) )
+#       print(loss)
+#       
+#     sess.close()
     
     

@@ -45,16 +45,17 @@ class NormalTriLNode(InnerNode):
     print(self.label)
     
     if isinstance(output_shape, int):
-      output_shape = [batch_size] + [output_shape]
+      main_oshape = [batch_size] + [output_shape]
     elif isinstance(output_shape, list):
       if isinstance(output_shape[0], int):
-        output_shape = [batch_size] + output_shape
+        main_oshape = [batch_size] + output_shape
       elif isinstance(output_shape[0], list):
-        output_shape = [batch_size] + output_shape[0]
+        main_oshape = [batch_size] + output_shape[0]
     else:
       raise ValueError("The output_shape of a DeterministicNode must be an int or "
                        "a list of ints")
-    self._oslot_to_shape[0] = output_shape
+    self.main_oshape = self._oslot_to_shape[0] = main_oshape
+#     self._oslot_to_shape[0] = main_oshape
     
     self._update_directives(directives)
 
@@ -67,13 +68,11 @@ class NormalTriLNode(InnerNode):
     
     # Mean oslot
     self._oslot_to_shape[1] = main_oshape
-#     self.num_outputs += 1
     o1 = self.builder.addOutput(name=self.directives['output_mean_name'])
     self.builder.addDirectedLink(self, o1, oslot=1)
     
     # Std oslot
     self._oslot_to_shape[2] = main_oshape + [main_oshape[-1]]  
-#     self.num_outputs += 1
     o2 = self.builder.addOutput(name=self.directives['output_cholesky_name'])
     
     print('_oslot_to_shape', self._oslot_to_shape)
@@ -100,7 +99,7 @@ class NormalTriLNode(InnerNode):
     Sets self.num_inputs
     """
     if value > self.num_expected_inputs:
-      raise AttributeError("Attribute num_inputs of DeterministicNode must "
+      raise ValueError("Attribute num_inputs of DeterministicNode must "
                            "should not be greather than ", self.num_expected_inputs)
     self._num_declared_inputs = value
 

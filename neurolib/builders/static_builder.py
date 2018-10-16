@@ -19,7 +19,7 @@ import tensorflow as tf
 from neurolib.builders.builder import Builder
 from neurolib.encoder.deterministic import DeterministicNNNode
 from neurolib.encoder.anode import ANode
-from neurolib.encoder.custom import CustomEncoderNode
+from neurolib.encoder.custom import CustomNode
 from neurolib.encoder.input import PlaceholderInputNode  # @UnusedImport
 from neurolib.encoder.output import OutputNode
 from neurolib.utils.utils import check_name
@@ -73,7 +73,6 @@ class StaticBuilder(Builder):
     
     Args:
       scope (str): The tensorflow scope of the Model to be built
-      
       batch_size (int): The batch size. Defaults to None (unspecified)
     """
     super(StaticBuilder, self).__init__(scope, batch_size=batch_size)
@@ -93,11 +92,8 @@ class StaticBuilder(Builder):
     
     Args:
       *main_params (list): Mandatory parameters for the InputNode
-      
       name (str): Unique identifier for the Input Node
-      
       iclass (InputNode): class of the node
-               
       dirs (dict): A dictionary of directives for the node
       
     TODO: Do not call class names directly
@@ -178,11 +174,8 @@ class StaticBuilder(Builder):
     
     Args:
       node1 (ANode): Node from which the edge emanates
-      
       node2 (ANode): Node to which the edge arrives
-      
       oslot (int): Output slot in node1
-      
       islot (int): Input slot in node2
     """
     # A
@@ -266,13 +259,16 @@ class StaticBuilder(Builder):
       
   def check_graph_correctness(self):
     """
-    Checks the coding graph outlined so far. 
+    Checks the graph declared so far. 
     
     TODO:
     """
     pass
         
-  def createCustomNode(self, name=None):
+  def createCustomNode(self,
+                       num_inputs,
+                       num_outputs,
+                       name=None):
     """
     Create a custom node
     
@@ -280,11 +276,16 @@ class StaticBuilder(Builder):
     """
     label = self.num_nodes
     self.num_nodes += 1
-
+    
+    # Must define here to avoid circular dependencies
     custom_builder = StaticBuilder(name)
-    cust = CustomEncoderNode(label, builder=custom_builder, scope=name)
+    cust = CustomNode(label,
+                      num_inputs,
+                      num_outputs,
+                      builder=custom_builder,
+                      name=name)
     self.custom_encoders[name] = self.nodes[label] = cust
-        
+    self._label_to_node[label] = cust
     return cust
   
   def get_custom_encoder(self, name):
@@ -367,8 +368,8 @@ class StaticBuilder(Builder):
 #             print('cur_node', cur_node_label, cur_node.name)
 #             print('cur_node.get_outputs()', cur_node.get_outputs() )
             child_node._islot_to_itensor[islot] = cur_node.get_outputs()[oslot]
-            if isinstance(child_node, CustomEncoderNode):
-              enc, enc_islot = child_node._islot_to_enc_islot[islot]
+            if isinstance(child_node, CustomNode):
+              enc, enc_islot = child_node._islot_to_inner_node_islot[islot]
               enc._islot_to_itensor[enc_islot] = cur_node.get_outputs()[oslot]
             
             # If the child is an OutputNode, we can append to the queue right away

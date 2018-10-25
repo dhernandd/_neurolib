@@ -44,9 +44,6 @@ class Model(abc.ABC):
     hyperparameters since each node of the Model graph can be independently
     tweaked.
     
-  
-  
-  
   The Model classes should implement at the very least the following methods
   
   train(...)
@@ -69,28 +66,24 @@ class Model(abc.ABC):
   @property
   def main_scope(self):
     """
-    TODO: Enforce somehow the setting of this property in custom classes
     """
     return self._main_scope
       
   @abstractmethod
   def build(self):
     """
-    TODO: Fill the exception
     """
     raise NotImplementedError("")
         
   @abstractmethod
   def update(self, dataset):
     """
-    TODO: Fill the exception
     """
     raise NotImplementedError("")
 
   @abstractmethod
   def train(self, dataset, **kwargs):
     """
-    TODO: Fill the exception
     """
     raise NotImplementedError("")
   

@@ -25,50 +25,17 @@ from neurolib.models.regression import Regression
 from neurolib.builders.static_builder import StaticBuilder
 
 # pylint: disable=bad-indentation, no-member, protected-access
-        
-class RegressionFullTest(tf.test.TestCase):
-  """
-  TODO: Write these in terms of self.Assert...
-  """  
-  def setUp(self):
-    """
-    """
-    tf.reset_default_graph()
 
-  @unittest.skipIf(False, "Skipping")
-  def test_init(self):
-    """
-    Test initialization
-    """
-    print("\nTest 0: Regression initialization")
-    Regression(input_dim=10, output_dim=1)
-    
-  @unittest.skipIf(False, "Skipping")
-  def test_build(self):
-    """
-    Test build
-    """
-    dc = Regression(input_dim=10, output_dim=1)
-    dc.build()
-    
-  @unittest.skipIf(True, "Skipping")
-  def test_train(self):
-    """
-    Test train
-    """
-    x = 10.0*np.random.randn(100, 2)
-    y = x[:,0:1] + 1.5*x[:,1:]# + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
-    dataset = {'train_features' : x,
-               'train_input_response' : y}
-    
-    dc = Regression(input_dim=2, output_dim=1)
-    dc.build()
-    dc.train(dataset, num_epochs=100)
-  
-  @unittest.skipIf(True, "Skipping")
+test_to_run = np.random.choice(2)
+
+class RegressionTestTrainCust(tf.test.TestCase):
+  """
+  """
+  @unittest.skipIf(test_to_run != 0, "Skipping Test 0")
   def test_train_custom_builder(self):
     """
     """
+    print("Running Test 0\n")
     x = 10.0*np.random.randn(100, 2)
     y = x[:,0:1] + 1.5*x[:,1:] # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_features' : x,
@@ -97,11 +64,12 @@ class RegressionFullTest(tf.test.TestCase):
     reg.visualize_model_graph("two_encoders.png")
     reg.train(dataset, num_epochs=50)
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(test_to_run != 1, "Skipping Test 1")
   def test_train_custom_builder2(self):
     """
     Build a custom Regression model whose Model graph has the rhombic design
     """
+    print("Running Test 1\n")
     x = 10.0*np.random.randn(100, 2)
     y = x[:,0:1] + 1.5*x[:,1:] # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_features' : x,
@@ -116,9 +84,9 @@ class RegressionFullTest(tf.test.TestCase):
                 'net_grow_rate' : 1.0 }
     input_dim = 2
     in0 = builder.addInput(input_dim, name="features")
-    enc1 = builder.addInner(1, 10, directives=enc_dirs)
-    enc2 = builder.addInner(1, 10, directives=enc_dirs)
-    enc3 = builder.addInner(2, 1, num_layers=1, activation='linear')
+    enc1 = builder.addInner(10, num_islots=1, directives=enc_dirs)
+    enc2 = builder.addInner(10, num_islots=1, directives=enc_dirs)
+    enc3 = builder.addInner(1, num_islots=2, num_layers=1, activation='linear')
     out0 = builder.addOutput(name="prediction")
 
     builder.addDirectedLink(in0, enc1)
@@ -133,7 +101,5 @@ class RegressionFullTest(tf.test.TestCase):
     reg.visualize_model_graph("two_encoders.png")
     reg.train(dataset, num_epochs=50)
     
-
 if __name__ == '__main__':
-  tf.test.main()
-  
+  unittest.main(failfast=True)

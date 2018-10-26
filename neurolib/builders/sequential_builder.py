@@ -312,7 +312,6 @@ class SequentialBuilder(StaticBuilder):
                          "input slot")
     exchanged_shape = node1._oslot_to_shape[oslot]
     node1._child_label_to_oslot[node2.label] = oslot
-#     node1.num_declared_outputs += 1
     if oslot in node1.free_oslots:
       node1.num_declared_outputs += 1
       node1.free_oslots.remove(oslot)

@@ -43,9 +43,8 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
     builder.addInputSequence(10, 10)
-    builder.addEvolutionSequence(2, init_states=i1, num_islots=2)
+    builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
 
   @unittest.skipIf(False, "Skipping")
   def test_DeclareModel2(self):
@@ -54,9 +53,8 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
     builder.addInputSequence(10, 10)
-    builder.addEvolutionSequence(2, init_states=i1, num_islots=2)
+    builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
     builder.addOutputSequence()
 
   @unittest.skipIf(False, "Skipping")
@@ -66,9 +64,8 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
     in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=i1, num_islots=2)
+    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=1)
@@ -81,9 +78,8 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
     in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=i1, num_islots=2)
+    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=1)
@@ -99,11 +95,9 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
     i2 = builder.addInput(4, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
-    i2 = builder.nodes[i2]
     in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=i1, num_islots=2)
-    enc2 = builder.addEvolutionSequence(4, init_states=i2, num_islots=2)
+    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
+    enc2 = builder.addEvolutionSequence(4, init_states=[i2], num_islots=2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=1)
@@ -120,8 +114,6 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     
     i1 = builder.addInput(2, iclass=NormalInputNode)
     i2 = builder.addInput(2, iclass=NormalInputNode)
-    i1 = builder.nodes[i1]
-    i2 = builder.nodes[i2]
     
     in1 = builder.addInputSequence(10, 10)
     enc1 = builder.addEvolutionSequence(2,

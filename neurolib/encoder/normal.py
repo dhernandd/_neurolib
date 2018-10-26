@@ -55,13 +55,15 @@ class NormalTriLNode(InnerNode):
     self.builder = builder
     self.num_declared_inputs = 0
     self.batch_size = batch_size
-    super(NormalTriLNode, self).__init__(label, num_features)
+    super(NormalTriLNode, self).__init__(label)
     
     self.num_features = num_features
     self.main_oshape = self._oslot_to_shape[0] = [batch_size] + [num_features]
     
     self._update_directives(**dirs)
 
+    self.free_oslots = list(range(self.num_expected_outputs))
+    
     self._declare_secondary_outputs()
     
   def _declare_secondary_outputs(self):

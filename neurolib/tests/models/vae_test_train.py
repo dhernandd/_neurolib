@@ -1,4 +1,4 @@
-# Copyright 2018 Daniel Hernandez Diaz, Columbia University
+  # Copyright 2018 Daniel Hernandez Diaz, Columbia University
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import numpy as np
 import tensorflow as tf
 
 from neurolib.models.vae import VariationalAutoEncoder 
-# from neurolib.builders.static_builder import StaticModelBuilder
 
-testTrain = 1
+# pylint: disable=bad-indentation, no-member, protected-access
+
 
 def make_data_iterator(data, batch_size=1, shuffle=True):
     """
@@ -38,7 +38,7 @@ def make_data_iterator(data, batch_size=1, shuffle=True):
     for i in range(0, nsamps, batch_size):
         yield [ d[l_inds[i:i+batch_size]] for d in data ]
 
-class VAEFullTest(tf.test.TestCase):
+class VAETestTrain(tf.test.TestCase):
   """
   TODO: Write these in terms of self.Assert...
   """  
@@ -47,21 +47,6 @@ class VAEFullTest(tf.test.TestCase):
     """
     tf.reset_default_graph()
     
-  @unittest.skipIf(testTrain, "Skipping")
-  def test_init(self):
-    """
-    """
-    VariationalAutoEncoder(input_dim=3, output_dim=10)
-    
-  @unittest.skipIf(testTrain, "Skipping")
-  def test_build(self):
-    """
-    """
-    dc = VariationalAutoEncoder(input_dim=3, output_dim=10)
-    dc.build()
-#     dc.visualize_model_graph()
-
-  @unittest.skipIf(not testTrain, "Skipping")
   def test_train(self):
     """
     """
@@ -73,11 +58,9 @@ class VAEFullTest(tf.test.TestCase):
     y = np.tanh(np.dot(x, W) + 0.1*np.random.randn(nsamps, odim)) # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
     dataset = {'train_response' : y}
         
-    vae = VariationalAutoEncoder(input_dim=3, output_dim=10)
+    vae = VariationalAutoEncoder(latent_dim=3, output_dim=10)
     vae.build()
-    vae.train(dataset, num_epochs=500, batch_size=1)
-
-
-
+    vae.train(dataset, num_epochs=500)
+    
 if __name__ == '__main__':
-  tf.test.main()
+  unittest.main(failfast=True)

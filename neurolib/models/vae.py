@@ -18,25 +18,30 @@ import tensorflow as tf
 
 from neurolib.models.models import Model
 
-from neurolib.trainers.trainer import GDBender
-from neurolib.builders.static_builder import StaticModelBuilder
-from neurolib import cost_dict
+from neurolib.trainers.trainer import GDTrainer
+from neurolib.builders.static_builder import StaticBuilder
+from neurolib.trainers import cost_dict
 from neurolib.encoder.normal import NormalTriLNode
 from neurolib.utils.graphs import get_session
 
+# pylint: disable=bad-indentation, no-member, protected-access
 
 class VariationalAutoEncoder(Model):
   """
   The Static Variational Autoencoder.   
   """
-  def __init__(self, input_dim=None, output_dim=None, directives={},
-               builder=None, batch_size=None):
+  def __init__(self,
+               latent_dim=None,
+               output_dim=None,
+               batch_size=1,
+               builder=None,
+               **dirs):
     """
+    Initialize the static variational autoencoder
     """
-    self.input_dim = input_dim
+    self.latent_dim = latent_dim
     self.output_dim = output_dim
     self.batch_size = batch_size
-    self._update_default_directives(directives)
     
     # The main scope for this model. 
     self._main_scope = 'VariationalAutoEncoder'
@@ -46,30 +51,22 @@ class VariationalAutoEncoder(Model):
     if builder is not None:
       self._help_build()
     else:
-      if input_dim is None or output_dim is None:
-        raise ValueError("Both the input dimension (in_dims) and the output dimension "
-                         "(out_dims) are necessary in order to specify build the default "
-                         "VariationalAutoEncoder.")
-                      
-  def _help_build(self):
-    """
-    A function to check that the client-provided builder corresponds indeed to a
-    VariationalAutoEncoder. Not clear whether this is actually needed, keep for now.
-    """
-    dirs = self.directives
-    trainer = dirs['trainer']
-#     print("Hi! I see you are attempting to build a Regressor by yourself."
-#           "In order for your model to be consistent with the ", trainer,
-#           " Trainer, you must implement the following Output Nodes:")
-#     if trainer == 'gd-mse':
-#       print("OutputNode(input_dim={}, name='regressors')".format(self.output_dim))
-#       print("OutputNode(input_dim={}, name='response')".format(self.output_dim))
-#       print("\nThis is an absolute minimum requirement and NOT a guarantee that a custom "
-#             "model will be successfully trained (read the docs for more).")
+      if latent_dim is None or output_dim is None:
+        raise ValueError("latent_dim, output_dim are mandatory "
+                         "in the default build")
+        
+    self._update_default_directives(**dirs)
+
+    # Initialize at build
+    self._adj_list = None
+    self.bender = None
+    self.cost = None
+    self.nodes = None
+    self.model_graph = None
       
-  def _update_default_directives(self, directives):
+  def _update_default_directives(self, **dirs):
     """
-    Updates the default specs with the ones provided by the user.
+    Update the default specs with the ones provided by the user.
     """
     self.directives = {'num_layers_0' : 2,
                        'num_nodes_0' : 128,
@@ -81,25 +78,8 @@ class VariationalAutoEncoder(Model):
                        'gd_optimizer' : 'adam',
                        'node_class' : NormalTriLNode}
     self.directives['cost'] = cost_dict[self.directives['cost']]  # @UndefinedVariable
-    self.directives.update(directives)
+    self.directives.update(dirs)
     
-  def _get_directives(self):
-    """
-    Returns two directives to build the two encoders that make up the default
-    Model.
-    
-    Directives:
-      nnodes_1stlayer_encj : The number of nodes in the first hidden layer of
-            the encoder j
-      ntwrk_grow_rate_encj : The ratio between the number of nodes of subsequent
-            layers
-      TODO: ...
-    """
-    enc_directives = self.directives
-    in_directives = {}
-    out_directives = {}
-    return enc_directives, in_directives, out_directives
-
   def build(self):
     """
     Builds the VariationalAutoEncoder.
@@ -109,15 +89,14 @@ class VariationalAutoEncoder(Model):
     dirs = self.directives
     builder = self.builder
     if builder is None:
-      self.builder = builder = StaticModelBuilder(scope=self.main_scope,
+      self.builder = builder = StaticBuilder(scope=self.main_scope,
                                                   batch_size=self.batch_size)
       
       enc0 = builder.addInner(self.output_dim, name='Generative',
                               node_class=dirs['node_class'],
                               directives=dirs)
-# 
-      i1 = builder.addInput(self.output_dim, name='response', directives={})
-      enc1 = builder.addInner(self.input_dim, name='Recognition',
+      i1 = builder.addInput(self.output_dim, name='response', **dirs)
+      enc1 = builder.addInner(self.latent_dim, name='Recognition',
                               node_class=dirs['node_class'],
                               directives=dirs)
       o1 = builder.addOutput(name='copy')
@@ -133,12 +112,12 @@ class VariationalAutoEncoder(Model):
 
     # Build the tensorflow graph
     self.nodes = self.builder.nodes
-    builder._build()
+    builder.build()
     self.model_graph = builder.model_graph
     
-    self.cost = self._define_cost()
+    self.cost = dirs['cost'](self.nodes)  #pylint: disable=not-callable
       
-    self.bender = GDBender(self.cost)
+    self.bender = GDTrainer(self.cost)
     
     self._is_built = True
     
@@ -146,44 +125,8 @@ class VariationalAutoEncoder(Model):
     """
     """
     pass
-
-  def _define_cost(self):
-    """
-    If I pass a distribution here, I can simply call inside of self.cost
-    dist.entropy. + logp(dist.data, dist.sample). This raises a number of
-    questions however
-    
-    1.- I had planned to make the cost a function of the outputs, not of the
-    distributions
-    
-    2.- If I make it a function of the distributions, how is it extensible? That
-    is, I am going to be able to compute loglikelihoods and entropies because
-    the distributions I am dealing with are Gaussian, but as soon as they
-    aren't, the cost in terms of them is not going to work anymore.
-    
-    3.- So, my take on this, I have to provide both 
-    """
-    cost = self.directives['cost']
-    
-    return cost(self.nodes)
-
   
-  def get_inputs(self):
-    """
-    """
-    return self.inputs
-  
-  def get_outputs(self):
-    """
-    """
-    return self.outputs
-  
-  def update(self, dataset):
-    """
-    """
-    self.bender.update(dataset)
-  
-  def train(self, dataset, num_epochs=100, batch_size=1):
+  def train(self, dataset, num_epochs=100):
     """
     Trains the model. 
     
@@ -197,6 +140,7 @@ class VariationalAutoEncoder(Model):
     """
     self._check_dataset_correctness(dataset)
     train_dataset, _, _ = self.make_datasets(dataset)
+    batch_size = self.builder.batch_size
 
     sess = get_session()
     sess.run(tf.global_variables_initializer())
@@ -204,12 +148,11 @@ class VariationalAutoEncoder(Model):
       self.bender.update(sess,
                          tuple(zip(*train_dataset.items())),
                          batch_size=batch_size)
-      cost = np.mean(sess.run([self.cost], feed_dict=train_dataset))
+#       cost = np.mean(sess.run([self.cost], feed_dict=train_dataset))
+      cost = self.reduce_op_from_batches(sess, [self.cost], train_dataset)
       print(cost)
       
     sess.close()
-#     self.bender.train(train_dataset, valid_dataset, scope=self.main_scope,
-#                   num_epochs=num_epochs)
     
   def visualize_model_graph(self, filename="model_graph"):
     """
@@ -221,16 +164,3 @@ class VariationalAutoEncoder(Model):
     """
     """
     pass
-  
-  def get_encoders(self):
-    """
-    """
-    pass
-
-
-  
-  
-  
-  
-  
-  

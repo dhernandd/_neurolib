@@ -129,8 +129,9 @@ class SequentialBuilder(StaticBuilder):
   
   def addEvolutionSequence(self,
                            num_features, 
+                           num_islots,
                            init_states=None,
-                           num_islots=2,
+#                            hidden_dim=None,
                            mode='forward',
                            name=None,
                            node_class='basic', 
@@ -146,7 +147,7 @@ class SequentialBuilder(StaticBuilder):
     init_states = [self.nodes[node_name] for node_name in init_states]
     node = node_class(label,
                       num_features,
-                      init_states,
+                      init_states=init_states,
                       max_steps=self.max_steps,
                       batch_size=self.batch_size,
                       name=name,

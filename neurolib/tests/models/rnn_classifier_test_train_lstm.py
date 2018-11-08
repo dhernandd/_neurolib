@@ -58,9 +58,11 @@ class RNNClassifierTrainTest(tf.test.TestCase):
     
     model = RNNClassifier(num_labels,
                           input_dim=1,
+                          latent_dim=4,
                           hidden_dim=4,
                           batch_size=1,
-                          max_steps=max_steps)
+                          max_steps=max_steps,
+                          node_class='lstm')
     model.build()
     model.train(train_dataset)
     

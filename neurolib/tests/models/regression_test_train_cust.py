@@ -26,7 +26,7 @@ from neurolib.builders.static_builder import StaticBuilder
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
-test_to_run = np.random.choice(2)
+test_to_run = 1 # np.random.choice(2)
 
 class RegressionTestTrainCust(tf.test.TestCase):
   """

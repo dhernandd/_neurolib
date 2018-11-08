@@ -31,7 +31,8 @@ class RNNClassifier(Model):
   def __init__(self,
                num_labels,
                input_dim=None,
-               hidden_dim=None,
+               latent_dim=None,
+               hidden_dim=1,
                builder=None,
                batch_size=1,
                max_steps=25,
@@ -41,6 +42,7 @@ class RNNClassifier(Model):
     """
     self.input_dim = input_dim
     self.num_labels = num_labels
+    self.latent_dim = latent_dim
     self.hidden_dim = hidden_dim
     self.batch_size = batch_size
     self.max_steps = max_steps
@@ -54,8 +56,8 @@ class RNNClassifier(Model):
       if input_dim is None:
         raise ValueError("Argument input_dim is required to build the default "
                          "RNNClassifier")
-      if hidden_dim is None:
-        raise ValueError("Argument hidden_dim is required to build the default "
+      if latent_dim is None:
+        raise ValueError("Argument latent_dim is required to build the default "
                          "RNNClassifier")
         
     self._update_default_directives(**dirs)
@@ -92,17 +94,25 @@ class RNNClassifier(Model):
       self.builder = builder = SequentialBuilder(scope=self.main_scope,
                                                  max_steps=self.max_steps,
                                                  batch_size=self.batch_size)
-      i1 = builder.addInput(self.hidden_dim, iclass=NormalInputNode)
+      if self.node_class == 'basic':
+        i1 = builder.addInput(self.latent_dim, iclass=NormalInputNode)
+        istates = [i1]
+        is_islot, evs_nislots = 1, 2
+      elif self.node_class == 'lstm':
+        i1 = builder.addInput(self.latent_dim, iclass=NormalInputNode)
+        h1 = builder.addInput(self.hidden_dim, iclass=NormalInputNode)
+        istates = [i1, h1]
+        is_islot, evs_nislots = 2, 3
       is1 = builder.addInputSequence(self.input_dim, name='iseq')
-      enc1 = builder.addEvolutionSequence(self.hidden_dim,
-                                          init_states=[i1],
-                                          num_islots=2,
+      evs1 = builder.addEvolutionSequence(self.latent_dim,
+                                          init_states=istates,
+                                          num_islots=evs_nislots,
                                           node_class=self.node_class)
       inn1 = builder.addInner(self.num_labels)
       os1 = builder.addOutputSequence(name='prediction')
             
-      builder.addDirectedLink(is1, enc1, islot=1)
-      builder.addDirectedLink(enc1, inn1)
+      builder.addDirectedLink(is1, evs1, islot=is_islot)
+      builder.addDirectedLink(evs1, inn1)
       builder.addDirectedLink(inn1, os1)
       
       self._adj_list = builder.adj_list

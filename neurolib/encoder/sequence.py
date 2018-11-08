@@ -20,32 +20,9 @@ import tensorflow as tf
 
 from neurolib.encoder.basic import InnerNode
 from neurolib.encoder import act_fn_dict, layers_dict, cell_dict
+from neurolib.encoder.input import NormalInputNode
 
 # pylint: disable=bad-indentation, no-member, protected-access
-
-# class Sequence(InnerNode):
-#   """
-#   """
-#   def __init__(self, label, num_features, max_steps, batch_size):
-#     """
-#     """
-#     self.label = label
-#     self.num_features = num_features
-#     self.max_steps = max_steps
-#     self.batch_size = batch_size
-#     super(Sequence, self).__init__(label)
-#     
-#     self.main_oshape = [batch_size, max_steps, num_features]
-#     self._oslot_to_shape[0] = self.main_oshape
-#     
-#     self.free_oslots = list(range(self.num_expected_outputs))
-#     
-#   @abstractmethod
-#   def _build(self):
-#     """
-#     """
-#     raise NotImplementedError("Please implement me.")
-    
     
 class EvolutionSequence(InnerNode):
   """
@@ -175,7 +152,7 @@ class LSTMEvolutionSequence(EvolutionSequence):
   def __init__(self,
                label, 
                num_features,
-               init_states=None,
+               init_states,
                num_islots=3,
                max_steps=30,
                batch_size=1,
@@ -194,6 +171,9 @@ class LSTMEvolutionSequence(EvolutionSequence):
                                                 mode=mode)
     
     self.init_state, self.init_hidden_state = init_states[0], init_states[1]
+#     self.hidden_dim = hidden_dim
+#     self.init_state = init_states[0]
+#     self.init_hidden_state = builder.addInput(hidden_dim, iclass=NormalInputNode)
     builder.addDirectedLink(self.init_state, self, islot=0)
     builder.addDirectedLink(self.init_hidden_state, self, islot=1)
     

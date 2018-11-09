@@ -26,7 +26,7 @@ from neurolib.builders.static_builder import StaticBuilder
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
-test_to_run = 1 # np.random.choice(2)
+test_to_run = 2 # np.random.choice(3)
 
 class RegressionTestTrainCust(tf.test.TestCase):
   """
@@ -61,7 +61,7 @@ class RegressionTestTrainCust(tf.test.TestCase):
     # Pass the builder object to the Regression Model
     reg = Regression(builder=builder)
     reg.build()
-    reg.visualize_model_graph("two_encoders.png")
+#     reg.visualize_model_graph("two_encoders.png")
     reg.train(dataset, num_epochs=50)
 
   @unittest.skipIf(test_to_run != 1, "Skipping Test 1")
@@ -98,8 +98,44 @@ class RegressionTestTrainCust(tf.test.TestCase):
     # Pass the builder object to the Regression Model
     reg = Regression(input_dim=2, output_dim=1, builder=builder)
     reg.build()
+#     reg.visualize_model_graph("two_encoders.png")
+    reg.train(dataset, num_epochs=50)
+    
+  @unittest.skipIf(test_to_run != 2, "Skipping")
+  def test_train_custom_node2(self):
+    """
+    Test commit
+    """
+    print("Running Test 2\n")
+    input_dim = 2
+    x = 10.0*np.random.randn(100, input_dim)
+    y = x[:,0:1] + 1.5*x[:,1:] # + 3*x[:,1:]**2 + 0.5*np.random.randn(100,1)
+    dataset = {'train_features' : x,
+               'train_input_response' : y}
+    
+    builder = StaticBuilder("MyModel")
+    enc_dirs = {'num_layers' : 2,
+                'num_nodes' : 128,
+                'activation' : 'leaky_relu',
+                'net_grow_rate' : 1.0 }
+
+    in0 = builder.addInput(input_dim, name='features')
+    cust = builder.createCustomNode(1, 1, name="Custom")
+    cust_in1 = cust.addInner(3, directives=enc_dirs)
+    cust_in2 = cust.addInner(1, directives=enc_dirs)
+    cust.addDirectedLink(cust_in1, cust_in2)
+    cust.commit()
+    out0 = builder.addOutput(name='prediction')
+    
+    builder.addDirectedLink(in0, cust)
+    builder.addDirectedLink(cust, out0)
+    
+    # Pass the builder object to the Regression Model
+    reg = Regression(input_dim=2, output_dim=1, builder=builder)
+    reg.build()
     reg.visualize_model_graph("two_encoders.png")
     reg.train(dataset, num_epochs=50)
+
     
 if __name__ == '__main__':
   unittest.main(failfast=True)

@@ -23,12 +23,11 @@ from neurolib.encoder import act_fn_dict, layers_dict
 class DeterministicNNNode(InnerNode):
   """
   A DeterministicNNNode (Neural Net) is a deterministic mapping with a single
-  output. It is the simplest node that embodies a transformation to the way
-  information is represented. DeterministicNNNodes can have many inputs, in
-  which case they are concatenated when the node is built.
+  (possibly cloned) output. It is the simplest node that embodies a
+  transformation to the way information is represented. DeterministicNNNodes can
+  have many inputs, in which case they are concatenated when the node is built.
   
   Class attributes:
-    num_expected_inputs = 1
     num_expected_outputs = 1    
   """
   _requires_builder = False

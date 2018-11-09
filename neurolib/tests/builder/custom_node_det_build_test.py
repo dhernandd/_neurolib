@@ -33,7 +33,6 @@ class CustomEncoderBuilderBasicTest(tf.test.TestCase):
     """
     Create a CustomNode
     """
-    tf.reset_default_graph()
     builder = StaticBuilder()
     builder.createCustomNode(1, 1, name="Custom")
   
@@ -42,7 +41,6 @@ class CustomEncoderBuilderBasicTest(tf.test.TestCase):
     """
     Test commit
     """
-    tf.reset_default_graph()
     builder = StaticBuilder("MyModel")
 
     builder.addInput(10)
@@ -58,7 +56,6 @@ class CustomEncoderBuilderBasicTest(tf.test.TestCase):
     """
     Test build
     """
-    tf.reset_default_graph()
     builder = StaticBuilder("MyModel")
 
     cust = builder.createCustomNode(1, 1, name="Custom")

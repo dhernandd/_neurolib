@@ -26,6 +26,12 @@ from neurolib.encoder.input import NormalInputNode
     
 class EvolutionSequence(InnerNode):
   """
+  An EvolutionSequence represents a sequence of mappings, each with the
+  distinguishining feature that it takes the output of their predecessor as
+  input. This makes them appropriate in particular to represent the time
+  evolution of a code.
+  
+  RNNs are children EvolutionSequence.
   """
   num_expected_outputs = 1
   _requires_builder = True
@@ -70,6 +76,9 @@ class EvolutionSequence(InnerNode):
 
 class BasicRNNEvolutionSequence(EvolutionSequence):
   """
+  BasicRNNEvolutionSequence is the simplest possible EvolutionSequence. It is a
+  mapping whose inputs are an external input tensor and the previous state of
+  the sequence, and whose output is the (i+1)th state. 
   """
   def __init__(self,
                label, 
@@ -83,6 +92,7 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
                mode='forward',
                **dirs):
     """
+    Initialize the BasicRNNEvolutionSequence
     """
     super(BasicRNNEvolutionSequence, self).__init__(label,
                                                     num_features,
@@ -171,9 +181,6 @@ class LSTMEvolutionSequence(EvolutionSequence):
                                                 mode=mode)
     
     self.init_state, self.init_hidden_state = init_states[0], init_states[1]
-#     self.hidden_dim = hidden_dim
-#     self.init_state = init_states[0]
-#     self.init_hidden_state = builder.addInput(hidden_dim, iclass=NormalInputNode)
     builder.addDirectedLink(self.init_state, self, islot=0)
     builder.addDirectedLink(self.init_hidden_state, self, islot=1)
     

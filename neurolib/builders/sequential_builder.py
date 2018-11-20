@@ -18,7 +18,7 @@ import tensorflow as tf
 
 from neurolib.encoder.anode import ANode
 from neurolib.encoder.sequence import (BasicRNNEvolutionSequence, LSTMEvolutionSequence,
-                                       EvolutionSequence)
+                                       EvolutionSequence, CustomEvolutionSequence)
 from neurolib.encoder.custom import CustomNode
 # from neurolib.encoder.rnn import CustomRNN
 from neurolib.encoder.output import OutputNode
@@ -31,7 +31,8 @@ from neurolib.encoder.input import PlaceholderInputNode
 # pylint: disable=bad-indentation, no-member, protected-access
 
 sequence_dict = {'basic' : BasicRNNEvolutionSequence,
-                 'lstm' : LSTMEvolutionSequence}
+                 'lstm' : LSTMEvolutionSequence,
+                 'custom' : CustomEvolutionSequence}
 
 innernode_dict = {'deterministic' : DeterministicNNNode}
 
@@ -131,30 +132,30 @@ class SequentialBuilder(StaticBuilder):
                            num_features, 
                            num_islots,
                            init_states=None,
-#                            hidden_dim=None,
                            mode='forward',
                            name=None,
-                           node_class='basic', 
+                           ev_seq='basic',
+                           cell='basic', 
                            **dirs):
     """
     """
     label = self.num_nodes
     self.num_nodes += 1
     
-    node_class = sequence_dict[node_class]
-    print('init_states', init_states)
-    print('self.nodes', self.nodes)
+    if isinstance(ev_seq, str):
+      ev_seq = sequence_dict[ev_seq]
     init_states = [self.nodes[node_name] for node_name in init_states]
-    node = node_class(label,
-                      num_features,
-                      init_states=init_states,
-                      max_steps=self.max_steps,
-                      batch_size=self.batch_size,
-                      name=name,
-                      num_islots=num_islots,
-                      builder=self,
-                      mode=mode,
-                      **dirs)
+    node = ev_seq(label,
+                  num_features,
+                  builder=self,
+                  init_states=init_states,
+                  max_steps=self.max_steps,
+                  batch_size=self.batch_size,
+                  name=name,
+                  num_islots=num_islots,
+                  mode=mode,
+                  cell=cell,
+                  **dirs)
     name = node.name
     self.nodes[name] = node
     self._label_to_node[label] = node
@@ -186,27 +187,6 @@ class SequentialBuilder(StaticBuilder):
     self.nodes[node.name] = self._label_to_node[label] = node
     
     return node.name
-#       
-#   def declareRNN(self, num_inputs, num_outputs, name):
-#     """
-#     
-#     TODO: Check name
-#     """
-#     label = self.num_nodes
-#     self.num_nodes += 1
-#     
-#     # Must define here to avoid circular dependencies
-#     custom_builder = SequentialBuilder(self.max_steps,
-#                                        scope=name,
-#                                        batch_size=self.batch_size)
-#     cust = CustomRNN(label,
-#                num_inputs,
-#                num_outputs,
-#                builder=custom_builder,
-#                name=name)
-#     self.custom_encoders[name] = self.nodes[label] = cust
-#     self._label_to_node[label] = cust
-#     return cust
 
   def addDirectedLink(self, node1, node2, oslot=0, islot=0):
     """

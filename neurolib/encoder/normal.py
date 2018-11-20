@@ -27,23 +27,25 @@ act_fn_dict = {'relu' : tf.nn.relu,
 
 class NormalTriLNode(InnerNode):
   """
+  A Gaussian node.
+  
+  
   """
-  num_expected_inputs = 1
   num_expected_outputs = 3
   
-  def __init__(self, 
-               label,
-               num_features,
+  def __init__(self,
                builder,
+               state_size,
+               num_inputs=1,
+               is_sequence=False,
                name=None,
-               batch_size=1,
                **dirs):
     """
     Initialize a NormalInputNode
     
     Args:
       label (int): A unique identifier for the node
-      num_features (int): The size of the last dimension.
+      state_size (int): The size of the last dimension.
       builder (Builder): An instance of Builder necessary to declare the
           secondary output nodes
       name (str): A unique string identifier for this node
@@ -51,20 +53,38 @@ class NormalTriLNode(InnerNode):
       dirs (dict): A set of user specified directives for constructing this
           node
     """
-    self.name = "NormalTril_" + str(label) if name is None else name
-    self.builder = builder
-    self.num_declared_inputs = 0
-    self.batch_size = batch_size
-    super(NormalTriLNode, self).__init__(label)
+    super(NormalTriLNode, self).__init__(builder,
+                                         is_sequence)
     
-    self.num_features = num_features
-    self.main_oshape = self._oslot_to_shape[0] = [batch_size] + [num_features]
+    self.num_expected_inputs = num_inputs
+    self.state_size = state_size
+    self.main_oshape = self.get_main_oshape(self.batch_size,
+                                            self.max_steps,
+                                            state_size) 
+    self._oslot_to_shape[0] = self.main_oshape
     
-    self._update_directives(**dirs)
+    self.name = "NormalTril_" + str(self.label) if name is None else name
 
+    self._update_directives(**dirs)
     self.free_oslots = list(range(self.num_expected_outputs))
     
     self._declare_secondary_outputs()
+
+  def _update_directives(self, **dirs):
+    """
+    Update the node directives
+    """
+    self.directives = {'num_layers' : 2,
+                      'num_nodes' : 128,
+                      'activation' : 'leaky_relu',
+                      'net_grow_rate' : 1.0,
+                      'share_params' : False,
+                      'output_mean_name' : self.name + '_mean',
+                      'output_cholesky_name' : self.name + '_cholesky'}
+    self.directives.update(dirs)
+    
+    # Deal with directives that map to tensorflow objects hidden from the client
+    self.directives['activation'] = act_fn_dict[self.directives['activation']]
     
   def _declare_secondary_outputs(self):
     """
@@ -84,22 +104,6 @@ class NormalTriLNode(InnerNode):
     
     print('_oslot_to_shape', self._oslot_to_shape)
     self.builder.addDirectedLink(self, o2, oslot=2)
-
-  def _update_directives(self, **dirs):
-    """
-    Update the node directives
-    """
-    self.directives = {'num_layers' : 2,
-                      'num_nodes' : 128,
-                      'activation' : 'leaky_relu',
-                      'net_grow_rate' : 1.0,
-                      'share_params' : False,
-                      'output_mean_name' : self.name + '_mean',
-                      'output_cholesky_name' : self.name + '_cholesky'}
-    self.directives.update(dirs)
-    
-    # Deal with directives that map to tensorflow objects hidden from the client
-    self.directives['activation'] = act_fn_dict[self.directives['activation']]
 
   def _build(self, inputs=None):
     """

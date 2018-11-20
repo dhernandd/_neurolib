@@ -36,8 +36,8 @@ class OutputSequence(ANode):
       name (str): A unique name for this node.
     """
     self.name = "OutSeq_" + str(label) if name is None else name
-    
-    super(OutputSequence, self).__init__(label)
+    self.label = label
+    super(OutputSequence, self).__init__()
     
     # Add visualization
     self.vis = pydot.Node(self.name)

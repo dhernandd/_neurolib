@@ -60,6 +60,7 @@ class CustomCell(ANode, tf.nn.rnn_cell.RNNCell):
   
   def compute_output_shape(self, input_shape):
     """
+    Compute output shape.
     """
     tf.nn.rnn_cell.RNNCell.compute_output_shape(self, input_shape)
 

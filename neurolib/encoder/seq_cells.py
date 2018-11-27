@@ -65,7 +65,6 @@ class CustomCell(ANode, tf.nn.rnn_cell.RNNCell):
 
 class BasicNormalTriLCell(CustomCell):
   """
-  TODO: Change the name of this
   """
   def __init__(self,
                state_size,
@@ -121,19 +120,6 @@ class BasicNormalTriLCell(CustomCell):
                                 node_class=NormalTriLNode,
                                 name='NormalTrilCell')
     return builder.nodes[enc_name]
-    
-#     cust = builder.createCustomNode(name='Cell',
-#                                     num_inputs=self.num_expected_inputs,
-#                                     num_outputs=self.num_expected_outputs)
-#     in1 = cust.addInner(self.state_dim,
-#                         num_islots=self.num_inputs,
-#                         node_class=NormalTriLNode)
-#     cust.addInput(islot=0, inode_name=in1, inode_islot=0)
-#     cust.addInput(islot=1, inode_name=in1, inode_islot=1)
-#     cust.addOutput(oslot=0, inode_name=in1, inode_oslot=0)
-#     cust.commit()
-#     
-#     return cust
     
   def on_linked_as_node_2(self, islot):
     """

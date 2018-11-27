@@ -22,6 +22,8 @@ from neurolib.encoder.input import NormalInputNode
 from neurolib.trainers.trainer import GDTrainer
 from neurolib.utils.graphs import get_session
 from neurolib.trainers import cost_dict
+from neurolib.encoder.cells import get_cell_init_states,\
+  are_seq_and_cell_compatible
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
@@ -30,23 +32,28 @@ class RNNClassifier(Model):
   """
   def __init__(self,
                num_labels,
+               num_inputs=1,
                input_dim=None,
                latent_dim=None,
-               hidden_dim=1,
                builder=None,
                batch_size=1,
                max_steps=25,
-               node_class='basic',
+               seq_class='basic',
+               cell_class='basic',
                **dirs):
     """
     """
     self.input_dim = input_dim
     self.num_labels = num_labels
+    self.num_inputs = num_inputs
     self.latent_dim = latent_dim
-    self.hidden_dim = hidden_dim
+    
     self.batch_size = batch_size
     self.max_steps = max_steps
-    self.node_class = node_class
+    self.cell_class = cell_class
+    self.seq_class = seq_class
+    are_seq_and_cell_compatible(seq_class, cell_class)
+    
     self._main_scope = 'RNNClassifier'
     
     super(RNNClassifier, self).__init__()
@@ -78,12 +85,16 @@ class RNNClassifier(Model):
     self.directives = {'trainer' : 'gd',
                        'loss_func' : 'cross_entropy',
                        'gd_optimizer' : 'adam',
-                       'lr' : 1e-3}
+                       'lr' : 1e-3,
+                       'hidden_dims' : []}
+    if self.cell_class == 'lstm':
+      self.directives['hidden_dims'] = [self.latent_dim] 
     
     self.directives.update(directives)
     
     self.directives['loss_func'] = cost_dict[self.directives['loss_func']]
-    
+    self.directives['hidden_dims'].insert(0, self.latent_dim)
+        
   def build(self):
     """
     Builds the RNNClassifier
@@ -94,24 +105,34 @@ class RNNClassifier(Model):
       self.builder = builder = SequentialBuilder(scope=self.main_scope,
                                                  max_steps=self.max_steps,
                                                  batch_size=self.batch_size)
-      if self.node_class == 'basic':
-        i1 = builder.addInput(self.latent_dim, iclass=NormalInputNode)
-        istates = [i1]
-        is_islot, evs_nislots = 1, 2
-      elif self.node_class == 'lstm':
-        i1 = builder.addInput(self.latent_dim, iclass=NormalInputNode)
-        h1 = builder.addInput(self.hidden_dim, iclass=NormalInputNode)
-        istates = [i1, h1]
-        is_islot, evs_nislots = 2, 3
+#       init_states = get_cell_init_states(builder,
+#                                          self.cell_class,
+#                                          dirs['hidden_dims'])
+#       num_init_states = len(init_states)
+#       evseq_num_inputs = self.num_inputs + num_init_states
+#       iseq_islot = num_init_states
+
+#       else:
+#         cell = self.cell_class(state_size=self.latent_dim,
+#                                builder=builder,
+#                                **dirs)
+#         init_states = cell.get_istates()
+#         evseq_num_inputs = cell.num_expected_inputs
+#         iseq_islot = evseq_num_inputs - 1
       is1 = builder.addInputSequence(self.input_dim, name='iseq')
-      evs1 = builder.addEvolutionSequence(self.latent_dim,
-                                          init_states=istates,
-                                          num_islots=evs_nislots,
-                                          node_class=self.node_class)
-      inn1 = builder.addInner(self.num_labels)
+      evs1 = builder.addEvolutionSequence(num_features=self.latent_dim,
+#                                           num_inputs=evseq_num_inputs,
+                                          num_inputs=2,
+#                                           init_states=init_states,
+                                          ev_seq_class=self.seq_class,
+                                          cell_class=self.cell_class,
+                                          name='ev_seq',
+                                          **dirs)
+      inn1 = builder.addInnerSequence(self.num_labels)
       os1 = builder.addOutputSequence(name='prediction')
             
-      builder.addDirectedLink(is1, evs1, islot=is_islot)
+#       builder.addDirectedLink(is1, evs1, islot=iseq_islot)
+      builder.addDirectedLink(is1, evs1, islot=1)
       builder.addDirectedLink(evs1, inn1)
       builder.addDirectedLink(inn1, os1)
       
@@ -143,7 +164,7 @@ class RNNClassifier(Model):
     """
     pass
   
-  def train(self, dataset, num_epochs=100):
+  def train(self, dataset, num_epochs=100, **dirs):
     """
     Train the RNNClassifier model. 
     

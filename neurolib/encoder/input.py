@@ -215,7 +215,11 @@ class NormalInputNode(InputNode):
     
     TODO: This is only valid for 1D state_size
     """
-    oshape = self.main_oshape[-self.state_size_dim:]
+    if self.D == 1:
+#       oshape = self.main_oshape[-1:]
+      oshape = self.main_oshape[1:]
+    else:
+      raise NotImplementedError("")
     
     if self.is_sequence and self.max_steps is None:
       mean_init = tf.zeros(oshape)
@@ -245,7 +249,17 @@ class NormalInputNode(InputNode):
     self._oslot_to_shape[2] = oshape[:-1] + [oshape[-1]]*2 # stddev oslot  
     o2 = self.builder.addOutput(name=self.directives['output_scale_name'])
     self.builder.addDirectedLink(self, o2, oslot=2)
-    
+  
+  def _get_sample(self):
+    """
+    """
+    return self.dist.sample(sample_shape=self.batch_size)
+  
+  def __call__(self):
+    """
+    """
+    return self._get_sample()
+  
   def _build(self):
     """
     Builds a NormalInputNode.
@@ -263,13 +277,16 @@ class NormalInputNode(InputNode):
     dummy = tf.placeholder(tf.float32, [self.batch_size], 'dummy')
     self._oslot_to_otensor[0] = dist.sample(sample_shape=self.batch_size,
                                             name=self.name)
-    assert tf.shape(self._oslot_to_otensor[0]).as_list() == self._oslot_to_shape[0] 
+#     assert tf.shape(self._oslot_to_otensor[0]).as_list() == self._oslot_to_shape[0] 
+    assert self._oslot_to_otensor[0].shape.as_list() == self._oslot_to_shape[0] 
     
     self._oslot_to_otensor[1] = dist.loc
-    assert tf.shape(self._oslot_to_otensor[1]).as_list() == self._oslot_to_shape[1]
+#     assert tf.shape(self._oslot_to_otensor[1]).as_list() == self._oslot_to_shape[1]
+    assert self._oslot_to_otensor[1].shape.as_list() == self._oslot_to_shape[1]
     
     self._oslot_to_otensor[2] = dist.scale.to_dense()
-    assert tf.shape(self._oslot_to_otensor[2]).as_list() == self._oslot_to_shape[2]
+#     assert tf.shape(self._oslot_to_otensor[2]).as_list() == self._oslot_to_shape[2]
+    assert self._oslot_to_otensor[2].shape.as_list() == self._oslot_to_shape[2]
 
     self._is_built = True
 

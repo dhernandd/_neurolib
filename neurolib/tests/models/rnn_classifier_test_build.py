@@ -22,7 +22,11 @@ import tensorflow as tf
 from neurolib.models.rnn_sequence_predictor import RNNClassifier
 
 # pylint: disable=bad-indentation, no-member, protected-access
-        
+
+NUM_TESTS = 2
+run_up_to_test = 2
+tests_to_run = list(range(run_up_to_test))
+
 class RNNClassifierBuildTest(tf.test.TestCase):
   """
   TODO: Write these in terms of self.Assert...
@@ -32,20 +36,23 @@ class RNNClassifierBuildTest(tf.test.TestCase):
     """
     tf.reset_default_graph()
 
+  @unittest.skipIf(0 not in tests_to_run, "Skipping")
   def test_init(self):
     """
     Test initialization
     """
-    print("\nTest 0: Regression initialization")
-    RNNClassifier(2, input_dim=1, hidden_dim=3)
-    
+    print("\nTest 0: RNNClassifier Initialization")
+    RNNClassifier(2, input_dim=1, latent_dim=3)
+
+  @unittest.skipIf(1 not in tests_to_run, "Skipping")    
   def test_build(self):
     """
     Test build
     """
-    model = RNNClassifier(2, input_dim=1, hidden_dim=3)
+    print("\nTest 1: RNNClassifier build")
+    model = RNNClassifier(2, input_dim=2, latent_dim=3)
     model.build()
-
+    
 
 if __name__ == '__main__':
   unittest.main(failfast=True) 

@@ -73,3 +73,19 @@ class OutputNode(ANode):
     
     self._is_built = True
     
+class OutputSequence(OutputNode):
+  """
+  """  
+  def __init__(self,
+               builder,
+               name=None):
+    """
+    Initialize the OutputSequence. This is the same as an OutputNode but for the name
+    
+    Args:
+      label (int): A unique integer identifier for the node.
+      
+      name (str): A unique name for this node.
+    """
+    super(OutputSequence, self).__init__(builder, name)
+    name = "OutSeq_" + str(self.label) if name is None else name

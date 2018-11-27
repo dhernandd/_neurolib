@@ -24,6 +24,9 @@ from neurolib.models.rnn_sequence_predictor import RNNClassifier
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
+NUM_TESTS = 1
+run_test = 1
+
 def generateEchoData(num_labels, length, echo_step):
   """
   """
@@ -42,8 +45,9 @@ class RNNClassifierTrainTest(tf.test.TestCase):
     """
     """
     tf.reset_default_graph()
-    
-  def test_build(self):
+  
+  @unittest.skipIf(run_test != 1, "Skipping")
+  def test_train(self):
     """
     Test build
     """
@@ -58,11 +62,11 @@ class RNNClassifierTrainTest(tf.test.TestCase):
     
     model = RNNClassifier(num_labels,
                           input_dim=1,
-                          latent_dim=4,
+                          latent_dim=20,
                           batch_size=1,
                           max_steps=max_steps)
     model.build()
-    model.train(train_dataset)
+    model.train(train_dataset, num_epochs=200)
     
     # Test on validation data
     dataset = {'iseq' : X[390:]}

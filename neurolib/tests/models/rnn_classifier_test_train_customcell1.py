@@ -14,6 +14,7 @@
 #
 # ==============================================================================
 import os
+from neurolib.encoder.seq_cells import BasicNormalTriLCell
 os.environ['PATH'] += ':/usr/local/bin'
 import unittest
 
@@ -24,8 +25,8 @@ from neurolib.models.rnn_sequence_predictor import RNNClassifier
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
-NUM_TESTS = 1
-run_test = 1
+NUM_TESTS = 2
+run_test = 2
 
 def generateEchoData(num_labels, length, echo_step):
   """
@@ -53,6 +54,22 @@ class RNNClassifierTrainTest(tf.test.TestCase):
     """
     num_labels = 4
     max_steps = 25
+    
+    model = RNNClassifier(num_labels,
+                          input_dim=1,
+                          latent_dim=20,
+                          batch_size=1,
+                          max_steps=max_steps,
+                          cell_class=BasicNormalTriLCell)
+    model.build()
+    
+  @unittest.skipIf(run_test != 2, "Skipping")
+  def test_train(self):
+    """
+    Test build
+    """
+    num_labels = 4
+    max_steps = 25
     echo_step = 3
     X, Y = generateEchoData(num_labels, 10000, echo_step)
     X = np.reshape(X, [-1, max_steps, 1])
@@ -62,13 +79,12 @@ class RNNClassifierTrainTest(tf.test.TestCase):
     
     model = RNNClassifier(num_labels,
                           input_dim=1,
-                          latent_dim=4,
+                          latent_dim=20,
                           batch_size=1,
                           max_steps=max_steps,
-                          seq_class='lstm',
-                          cell_class='lstm')
+                          cell_class=BasicNormalTriLCell)
     model.build()
-    model.train(train_dataset)
+    model.train(train_dataset, num_epochs=200)
     
     # Test on validation data
     dataset = {'iseq' : X[390:]}

@@ -27,7 +27,7 @@ from neurolib.encoder.anode import ANode
 
 class InnerNode(ANode):
   """
-  Abstract class for interior 
+  Abstract class for interior nodes
   
   An InnerNode is an Anode that resides in the interior of the model graph. An
   InnerNode performs an operation on its inputs producing its outputs.

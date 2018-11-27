@@ -19,6 +19,7 @@ from tensorflow.contrib.layers.python.layers import fully_connected  #pylint: di
 
 from neurolib.encoder.basic import InnerNode
 from neurolib.encoder import MultivariateNormalTriL  # @UnresolvedImport
+from neurolib.utils.utils import basic_concatenation
 
 act_fn_dict = {'relu' : tf.nn.relu,
                'leaky_relu' : tf.nn.leaky_relu}
@@ -58,7 +59,7 @@ class NormalTriLNode(InnerNode):
     
     self.num_expected_inputs = num_inputs
     self.state_size = state_size
-    self.main_oshape = self.get_main_oshape(self.batch_size,
+    self.main_oshape, self.D = self.get_main_oshape(self.batch_size,
                                             self.max_steps,
                                             state_size) 
     self._oslot_to_shape[0] = self.main_oshape
@@ -69,6 +70,8 @@ class NormalTriLNode(InnerNode):
     self.free_oslots = list(range(self.num_expected_outputs))
     
     self._declare_secondary_outputs()
+    
+    self.dist = None
 
   def _update_directives(self, **dirs):
     """
@@ -92,6 +95,7 @@ class NormalTriLNode(InnerNode):
     deviation)
     """
     main_oshape = self._oslot_to_shape[0]
+    print("main_oshape", main_oshape)
     
     # Mean oslot
     self._oslot_to_shape[1] = main_oshape
@@ -99,32 +103,25 @@ class NormalTriLNode(InnerNode):
     self.builder.addDirectedLink(self, o1, oslot=1)
     
     # Stddev oslot
-    self._oslot_to_shape[2] = main_oshape + [main_oshape[-1]]  
+    self._oslot_to_shape[2] = main_oshape.append(self.state_size)  
     o2 = self.builder.addOutput(name=self.directives['output_cholesky_name'])
     
     print('_oslot_to_shape', self._oslot_to_shape)
     self.builder.addDirectedLink(self, o2, oslot=2)
 
-  def _build(self, inputs=None):
+  def _get_mean(self, _input):
     """
-    Builds the graph corresponding to a NormalTriL encoder.
-    
-    TODO: Expand this a lot, many more specs necessary.
     """
     dirs = self.directives
-    if inputs is not None:
-      raise NotImplementedError("") # TODO: Should I provide this option? meh
-
     num_layers = dirs['num_layers']
     num_nodes = dirs['num_nodes']
     activation = dirs['activation']
     net_grow_rate = dirs['net_grow_rate']
-
-    with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+    
+    output_dim = self._oslot_to_shape[0][-1]
+    with tf.variable_scope(self.name+'_mean', reuse=tf.AUTO_REUSE):
       # Define the Means
-      x_in = self._islot_to_itensor[0]
-      output_dim = self._oslot_to_shape[0][-1] # Last dim
-      hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation,
+      hid_layer = fully_connected(_input, num_nodes, activation_fn=activation,
             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
       for _ in range(num_layers-1):
         num_nodes = int(num_nodes*net_grow_rate)
@@ -132,38 +129,122 @@ class NormalTriLNode(InnerNode):
             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
       mean = fully_connected(hid_layer, output_dim, activation_fn=None)
     
-      # Define the Cholesky Lower Decomposition
+    return mean, hid_layer
+  
+  def _get_scale_tril(self, _input, hid_layer=None):
+    """
+    """
+    dirs = self.directives
+    num_layers = dirs['num_layers']
+    num_nodes = dirs['num_nodes']
+    activation = dirs['activation']
+    net_grow_rate = dirs['net_grow_rate']
+
+    output_dim = self._oslot_to_shape[0][-1]
+    with tf.variable_scope(self.name+'_scale', reuse=tf.AUTO_REUSE):
       if dirs['share_params']:
         output_chol = fully_connected(hid_layer, output_dim**2, activation_fn=None)
       else:
-        hid_layer = fully_connected(x_in, num_nodes, activation_fn=activation,
+        print("_input:", _input)
+        hid_layer = fully_connected(_input, num_nodes, activation_fn=activation,
             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
         for _ in range(num_layers-1):
           num_nodes = int(num_nodes*net_grow_rate)
           hid_layer = fully_connected(hid_layer, num_nodes, activation_fn=activation,
             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
         output_chol = fully_connected(hid_layer, output_dim**2,
-            activation_fn=None,
-            weights_initializer = tf.random_normal_initializer(stddev=1e-4),
+              activation_fn=None,
+              weights_initializer=tf.random_normal_initializer(stddev=1e-4),
+              biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(output_dim**2)))
   #           normalizer_fn=lambda x : x/tf.sqrt(x**2),
-            biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(output_dim**2)))
       output_chol = tf.reshape(output_chol, 
   #                              shape=[self.batch_size, output_dim, output_dim])
                                shape=[-1, output_dim, output_dim])
+    return output_chol
+  
+  def _get_sample(self, inputs=None, islot_to_itensor=None):
+    """
+    """
+    if inputs is not None:
+      _input = basic_concatenation(inputs)
+    else:
+      _input = basic_concatenation(islot_to_itensor)
 
-      if 'output_mean_name' in self.directives:
-        mean_name = self.directives['output_mean_name']
-      else:
-        mean_name = "Mean_" + str(self.label) + '_0'
-      if 'output_cholesky_name' in self.directives:
-        cholesky_name = self.directives['output_cholesky_name']
-      else:
-        cholesky_name = 'CholTril_' + str(self.label) + '_0'
+    mean, hid_layer = self._get_mean(_input)
+    output_chol = self._get_scale_tril(_input, hid_layer)
+    return MultivariateNormalTriL(loc=mean, scale_tril=output_chol).sample()
       
-      cholesky_tril = tf.identity(output_chol, name=cholesky_name)
+  def __call__(self, inputs=None, islot_to_itensor=None):
+    """
+    """
+#     with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):    
+    return self._get_sample(inputs, islot_to_itensor)
+     
+  def _build(self, islot_to_itensor=None):
+    """
+    Builds the graph corresponding to a NormalTriL encoder.
+    
+    TODO: Expand this a lot, many more specs necessary.
+    """
+#     dirs = self.directives
+#     if islot_to_itensor is None:
+    islot_to_itensor = self._islot_to_itensor
+
+#     num_layers = dirs['num_layers']
+#     num_nodes = dirs['num_nodes']
+#     activation = dirs['activation']
+#     net_grow_rate = dirs['net_grow_rate']
+
+    _input = basic_concatenation(islot_to_itensor)
+#     itensors = list(zip(*sorted(islot_to_itensor.items())))[1] # make sure the inputs are ordered
+#     _input = tf.concat(itensors, axis=-1)
+#       _input = self._islot_to_itensor[0]
+#     output_dim = self._oslot_to_shape[0][-1] # Last dim
+
+#     with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
+      # Define the Means
+    mean, hid_layer = self._get_mean(_input)
+#       hid_layer = fully_connected(_input, num_nodes, activation_fn=activation,
+#             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
+#       for _ in range(num_layers-1):
+#         num_nodes = int(num_nodes*net_grow_rate)
+#         hid_layer = fully_connected(hid_layer, num_nodes, activation_fn=activation,
+#             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
+#       mean = fully_connected(hid_layer, output_dim, activation_fn=None)
+    
+      # Define the Cholesky Lower Decomposition
+#       if dirs['share_params']:
+#         output_chol = fully_connected(hid_layer, output_dim**2, activation_fn=None)
+#       else:
+#         hid_layer = fully_connected(_input, num_nodes, activation_fn=activation,
+#             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
+#         for _ in range(num_layers-1):
+#           num_nodes = int(num_nodes*net_grow_rate)
+#           hid_layer = fully_connected(hid_layer, num_nodes, activation_fn=activation,
+#             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(num_nodes)))
+#         output_chol = fully_connected(hid_layer, output_dim**2,
+#             activation_fn=None,
+#             weights_initializer = tf.random_normal_initializer(stddev=1e-4),
+#   #           normalizer_fn=lambda x : x/tf.sqrt(x**2),
+#             biases_initializer=tf.random_normal_initializer(stddev=1/np.sqrt(output_dim**2)))
+#       output_chol = tf.reshape(output_chol, 
+#   #                              shape=[self.batch_size, output_dim, output_dim])
+#                                shape=[-1, output_dim, output_dim])
       
-      # Get the tensorflow distribution for this node
-      self.dist = MultivariateNormalTriL(loc=mean, scale_tril=cholesky_tril)
+    output_chol = self._get_scale_tril(_input, hid_layer)
+    if 'output_mean_name' in self.directives:
+      mean_name = self.directives['output_mean_name']
+    else:
+      mean_name = "Mean_" + str(self.label) + '_0'
+    if 'output_cholesky_name' in self.directives:
+      cholesky_name = self.directives['output_cholesky_name']
+    else:
+      cholesky_name = 'CholTril_' + str(self.label) + '_0'
+    
+    cholesky_tril = tf.identity(output_chol, name=cholesky_name)
+    
+    # Get the tensorflow distribution for this node
+    self.dist = MultivariateNormalTriL(loc=mean, scale_tril=cholesky_tril)
 
     # Fill the oslots
     self._oslot_to_otensor[0] = self.dist.sample(name='Out' + 

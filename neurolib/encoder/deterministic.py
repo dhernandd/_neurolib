@@ -70,6 +70,7 @@ class DeterministicNNNode(InnerNode):
     self.main_oshape, self.D = self.get_main_oshape(self.batch_size,
                                                     self.max_steps,
                                                     state_size)
+    print("on init:", self.name, self.main_oshape)
     self._oslot_to_shape[0] = self.main_oshape
     
     self._update_directives(**dirs)

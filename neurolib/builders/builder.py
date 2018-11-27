@@ -22,6 +22,8 @@ from neurolib.utils.utils import check_name
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
+innernode_dict = {'deterministic' : DeterministicNNNode}
+
 class Builder(abc.ABC):
   """
   An abstract class representing the Builder type. A Builder object builds
@@ -73,6 +75,8 @@ class Builder(abc.ABC):
       name (str): A unique string identifier for the node being added to the MG
       dirs (dict): A dictionary of directives for the node
     """
+    if isinstance(node_class, str):
+      node_class = innernode_dict[node_class]
     enc_node = node_class(self,
                           state_size,
                           num_inputs=num_inputs,

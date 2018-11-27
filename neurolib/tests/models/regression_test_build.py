@@ -49,7 +49,7 @@ class RegressionFullTest(tf.test.TestCase):
     """
     Test build
     """
-    print("\nTest 0: Regression build")
+    print("\nTest 1: Regression build")
     model = Regression(input_dim=10, output_dim=1)
     model.build()
 

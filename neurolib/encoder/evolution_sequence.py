@@ -164,6 +164,10 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
     
     self._is_built = True
 
+  def __call__(self):
+    """
+    """
+    raise NotImplementedError("")
 
 class LSTMEvolutionSequence(EvolutionSequence):
   """
@@ -270,6 +274,10 @@ class LSTMEvolutionSequence(EvolutionSequence):
     
     self._is_built = True
 
+  def __call__(self):
+    """
+    """
+    raise NotImplementedError("")
 
 class LinearNoisyDynamicsEvSeq(EvolutionSequence):
   """
@@ -338,7 +346,11 @@ class LinearNoisyDynamicsEvSeq(EvolutionSequence):
     
     self._is_built = True
     
-    
+  def __call__(self):
+    """
+    """
+    raise NotImplementedError("")
+  
 class CustomEvolutionSequence():
   """
   """

@@ -65,7 +65,7 @@ class RNNClassifierTrainTest(tf.test.TestCase):
                           latent_dim=4,
                           batch_size=1,
                           max_steps=max_steps,
-                          seq_class='lstm',
+                          ev_seq_class='lstm',
                           cell_class='lstm')
     model.build()
     model.train(train_dataset)

@@ -22,7 +22,7 @@ from neurolib.encoder.anode import ANode
 from neurolib.encoder.custom import CustomNode
 from neurolib.encoder.input import PlaceholderInputNode  # @UnusedImport
 from neurolib.encoder.output import OutputNode
-from neurolib.utils.utils import check_name
+from neurolib.utils.utils import check_name, basic_concatenation
 from neurolib.encoder.basic import CopyNode
 
 # pylint: disable=bad-indentation, no-member, protected-access
@@ -109,6 +109,7 @@ class StaticBuilder(Builder):
                      name=name,
                      **dirs)
     name = in_node.name
+    print("name, in_node.name", name, in_node)
     self.input_nodes[name] = self.nodes[name] = in_node 
     self._label_to_node[in_node.label] = in_node
     
@@ -239,6 +240,7 @@ class StaticBuilder(Builder):
                          "input slot")
     exchanged_shape = node1._oslot_to_shape[oslot]
     node1._child_label_to_oslot[node2.label] = oslot
+
     if oslot in node1.free_oslots:
       node1.num_declared_outputs += 1
       node1.free_oslots.remove(oslot)
@@ -246,6 +248,7 @@ class StaticBuilder(Builder):
     node2._islot_to_shape[islot] = exchanged_shape
     node2._parent_label_to_islot[node1.label] = islot
     node2.num_declared_inputs += 1
+    node2.free_islots.remove(islot)
 
     # Initialize _built_parents for the child node.
     node2._built_parents[node1.label] = False
@@ -309,74 +312,196 @@ class StaticBuilder(Builder):
     Get the label of a node from name
     """
     return self.nodes[name].label
-
-  def build(self):
+  
+  def get_output(self,
+                 inputs=None,
+                 islot_to_itensor=None,
+                 custom_node=None,
+                 scope_suffix=None):
     """
-    Build the declared model.
+    Get the output for this node from a set of inputs.
     
-    # put all nodes in a waiting list of nodes
-    # for node in input_nodes:
-      # start BFS from node. Add node to queue.
-      # (*)Dequeue, mark as visited
-      # build the tensorflow graph with the new added node
-      # Look at all its children nodes.
-      # For child in children of node
-          Add node to the list of inputs of child
-      #   have we visited all the parents of child?
-          Yes
-            Add to the queue
-      # Go back to (*)
-      * If the queue is empty, exit, start over from the next input node until all 
-      # have been exhausted
-      
-      # TODO: deal with back links.
-    """       
-    self.check_graph_correctness()
+    This method follows the directed links in the Model Graph (MG) in BFS
+    fashion to construct the tensorflow graph. The method behaves slightly
+    different for the case in which self is the inside Builder of a CustomNode.
+    In that case, the method must allow for sampling from the CustomNode.
     
-    print('\nBEGIN BUILD')
-    with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE): 
+    The algorithm goes through the following stages:
+    
+    * For inode in self.input_nodes:
+        A. If custom_node is provided:
+          A.1. Loop over the islots of inode and get the corresponding islots
+              of the parent custom_node.
+          A.2. Assign the inputs to custom_node._islot_to_itensor
+        B. Add inode to the queue
+        
+      * Start BFS loop:
+          C. Pop node from the queue. Set visited[node_label] to True
+          D. Build the popped node 
+            
+          * For child_node in node's children:
+              E. Set node in child_node._buils_parents to True
+              F. Get the endslots of the parent and child
+              G. Fill the inputs of the child node
+                G.1. If child_node is a CustomNode, also match the input of the
+                    islot with the input of the inner_islot
+              H. Append to the queue if all parents of child_node have been built
+        
+          I. If custom_node is provided and node is an OutputNode
+            I.1. Loop over oslots of node and get the corresponding oslots and
+                otensors of custom_node. Build the dictionary of results
+    """      
+    result = None
+    if custom_node is not None:
+      result = {}
+      _input = dict(enumerate(inputs)) if inputs is not None else islot_to_itensor
+    
+    scope_suffix = "" if scope_suffix is None else "_" + scope_suffix
+    with tf.variable_scope(self.scope + scope_suffix, reuse=tf.AUTO_REUSE): 
       visited = [False for _ in range(self.num_nodes)]
       queue = []
       for cur_inode_name in self.input_nodes:
         cur_inode_label = self.get_label_from_name(cur_inode_name)
+        cur_inode = self.nodes[cur_inode_name]
         
-        # start BFS
+        # Stage A
+        if custom_node is not None:
+          for inode_islot in cur_inode._islot_to_itensor:
+            custom_node_islot = custom_node._islot_to_inner_node_islot.inv[(cur_inode_name, inode_islot)]
+            cur_inode._islot_to_itensor[inode_islot] = _input[custom_node_islot]
+        
+        # Stage B
         queue.append(cur_inode_label)
+        
         while queue:
-          # A node is visited by definition once it is popped from the queue
+          # Stage C
           cur_node_label = queue.pop(0)
           visited[cur_node_label] = True
           cur_node = self._label_to_node[cur_node_label]
-  
+          
+          # Stage D
           print("Building node: ", cur_node.label, cur_node.name)
           # Build the tensorflow graph for this Encoder
-          cur_node._build()
+          if custom_node is None:  # CHEAP FIX!
+            cur_node._build()
+          else:
+            cur_node._get_output(islot_to_itensor=_input)
                     
-          # Go over the current node's children
           for child_label in self.adj_list[cur_node_label]:
+            # Stage E
             child_node = self._label_to_node[child_label]
             child_node._built_parents[cur_node_label] = True
             
+            # Stage F
             oslot = cur_node._child_label_to_oslot[child_label]
             islot = child_node._parent_label_to_islot[cur_node_label]
             
-            # Fill the inputs of the child node
+            # Stage G
             child_node._islot_to_itensor[islot] = cur_node.get_outputs()[oslot]
             if isinstance(child_node, CustomNode):
               enc_name, enc_islot = child_node._islot_to_inner_node_islot[islot]
               enc = child_node.in_builder.nodes[enc_name]
               enc._islot_to_itensor[enc_islot] = cur_node.get_outputs()[oslot]
             
-            # If the child is an OutputNode, we can append to the queue right away
-            # (OutputNodes have only one input)
+            # Stage H
             if isinstance(child_node, OutputNode):
               queue.append(child_node.label)
               continue
-            
-            # A child only gets added to the queue, i.e. ready to be built, once
-            # all its parents have been built ( and hence, produced the
-            # necessary inputs )
             if all(child_node._built_parents.items()):
               queue.append(child_node.label)
+          
+          # Stage I
+          print("custom_node is not None and cur_node.name in self.output_nodes",
+                custom_node is not None, cur_node.name in self.output_nodes)
+          print("cur_node.name, self.output_nodes", cur_node.name, self.output_nodes)
+          if custom_node is not None and cur_node.name in self.output_nodes:
+            for onode_oslot in cur_node._oslot_to_otensor:
+              custom_node_oslot = custom_node._oslot_to_inner_node_oslot.inv[(cur_node.name, onode_oslot)]
+              result[custom_node_oslot] = cur_node._oslot_to_otensor[onode_oslot]
+              
+          _input = None
+      
+      if custom_node is not None:
+        print("result.items()", result.items())
+        result_as_list = list(zip(*sorted(result.items())))[1]
+      else:
+        result_as_list = None
+
+    return result_as_list, result
+
+  def build(self):
+    """
+    """
+    self.get_output()
     
-    print('END BUILD')  
+#   def build(self, inputs=None, islot_to_itensor=None):
+#     """
+#     Build the declared model.
+#     
+#     # put all nodes in a waiting list of nodes
+#     # for node in input_nodes:
+#       # start BFS from node. Add node to queue.
+#       # (*)Dequeue, mark as visited
+#       # build the tensorflow graph with the new added node
+#       # Look at all its children nodes.
+#       # For child in children of node
+#           Add node to the list of inputs of child
+#       #   have we visited all the parents of child?
+#           Yes
+#             Add to the queue
+#       # Go back to (*)
+#       * If the queue is empty, exit, start over from the next input node until all 
+#       # have been exhausted
+#       
+#       # TODO: deal with back links.
+#     """       
+#     self.check_graph_correctness()
+#     
+#     print('\nBEGIN BUILD')
+#     with tf.variable_scope(self.scope, reuse=tf.AUTO_REUSE): 
+#       visited = [False for _ in range(self.num_nodes)]
+#       queue = []
+#       for cur_inode_name in self.input_nodes:
+#         cur_inode_label = self.get_label_from_name(cur_inode_name)
+# #         cur_inode = self.nodes[cur_inode_name]
+#                 
+#         # start BFS
+#         queue.append(cur_inode_label)
+#         while queue:
+#           # A node is visited by definition once it is popped from the queue
+#           cur_node_label = queue.pop(0)
+#           visited[cur_node_label] = True
+#           cur_node = self._label_to_node[cur_node_label]
+#   
+#           print("Building node: ", cur_node.label, cur_node.name)
+#           # Build the tensorflow graph for this Encoder
+#           cur_node._build()
+#                     
+#           # Go over the current node's children
+#           for child_label in self.adj_list[cur_node_label]:
+#             child_node = self._label_to_node[child_label]
+#             child_node._built_parents[cur_node_label] = True
+#             
+#             oslot = cur_node._child_label_to_oslot[child_label]
+#             islot = child_node._parent_label_to_islot[cur_node_label]
+#             
+#             # Fill the inputs of the child node
+#             child_node._islot_to_itensor[islot] = cur_node.get_outputs()[oslot]
+#             if isinstance(child_node, CustomNode):
+#               enc_name, enc_islot = child_node._islot_to_inner_node_islot[islot]
+#               enc = child_node.in_builder.nodes[enc_name]
+#               enc._islot_to_itensor[enc_islot] = cur_node.get_outputs()[oslot]
+#             
+#             # If the child is an OutputNode, we can append to the queue right away
+#             # (OutputNodes have only one input)
+#             if isinstance(child_node, OutputNode):
+#               queue.append(child_node.label)
+#               continue
+#             
+#             # A child only gets added to the queue, i.e. ready to be built, once
+#             # all its parents have been built ( and hence, produced the
+#             # necessary inputs )
+#             if all(child_node._built_parents.items()):
+#               queue.append(child_node.label)
+#     
+#     print('END BUILD')  

@@ -15,8 +15,8 @@
 # ==============================================================================
 import tensorflow as tf
 
-from neurolib.encoder.custom import CustomNode
-from neurolib.encoder.deterministic import DeterministicNNNode
+# from neurolib.encoder.custom import CustomNode
+# from neurolib.encoder.deterministic import DeterministicNNNode
 from neurolib.encoder.input import NormalInputNode
 from neurolib.encoder.anode import ANode
 from neurolib.builders.static_builder import StaticBuilder

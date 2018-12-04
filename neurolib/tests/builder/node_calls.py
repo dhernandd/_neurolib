@@ -20,55 +20,47 @@ from neurolib.builders.static_builder import StaticBuilder
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
-NUM_TESTS = 3
-run_up_to_test = 3
+NUM_TESTS = 9
+run_up_to_test = 2
 tests_to_run = list(range(run_up_to_test))
 
-class CustomEncoderBuilderBasicTest(tf.test.TestCase):
+class CallEncoderTest(tf.test.TestCase):
   """
   """
   def setUp(self):
     """
     """
     tf.reset_default_graph()
-    
+
   @unittest.skipIf(0 not in tests_to_run, "Skipping")
-  def test_init(self):
+  def test_CallDeterministic(self):
     """
-    Create a CustomNode
+    Test Calling a DeterministicNode
     """
-    print("\nTest 0: Initialization")
-    builder = StaticBuilder(scope='BuildCust')
-    builder.createCustomNode(1, 1, name="Custom")
-  
-  @unittest.skipIf(1 not in tests_to_run, "Skipping")
-  def test_add_encoder0(self):
-    """
-    Test commit
-    """
-    print("\nTest 1: Committing")
-    builder = StaticBuilder("MyModel")
-
-    builder.addInput(10)
-    cust = builder.createCustomNode(num_inputs=1,
-                                    num_outputs=1,
-                                    name="Custom")
-    cust_in1 = cust.addInner(3)
-    cust_in2 = cust.addInner(4)
-    cust.addDirectedLink(cust_in1, cust_in2)
-
-    cust.declareIslot(islot=0, innernode_name=cust_in1, inode_islot=0)
-    cust.declareOslot(oslot=0, innernode_name=cust_in2, inode_oslot=0)
-    cust.commit()
+    print("\nTest 0: Calling a Deterministic Node")
+    builder = StaticBuilder(scope="Basic")
+    in_name = builder.addInput(10)
+    enc_name = builder.addInner(3)
+    out_name = builder.addOutput()
+    builder.addDirectedLink(in_name, enc_name)
+    builder.addDirectedLink(enc_name, out_name)
     
-    builder.addOutput()
-      
-  @unittest.skipIf(2 not in tests_to_run, "Skipping")
-  def test_add_encoder1(self):
+    self.assertEqual(builder.num_nodes, 3, "The number of nodes has not been "
+                     "assigned correctly")
+    
+    builder.build()
+
+    X = tf.placeholder(tf.float32, [1, 10], 'X')
+    enc = builder.nodes[enc_name]
+    Y = enc([X])
+    self.assertEqual(Y.shape[-1], 3, "")
+    
+  @unittest.skipIf(1 not in tests_to_run, "Skipping")
+  def test_CallCustom(self):
     """
-    Test build
+    Test, calling a CustomNode
     """
-    print("\nTest 2: Build")
+    print("\nTest 1: Build")
     builder = StaticBuilder("MyModel")
 
     cust = builder.createCustomNode(num_inputs=1,
@@ -86,8 +78,12 @@ class CustomEncoderBuilderBasicTest(tf.test.TestCase):
     o1 = builder.addOutput()
     builder.addDirectedLink(in1, cust)
     builder.addDirectedLink(cust, o1)
-     
     builder.build()
+    
+    X = tf.placeholder(tf.float32, [1, 10], 'X')
+    Y, _ = cust([X])  # pylint: disable=unpacking-non-sequence
+    self.assertEqual(Y[0].shape[-1], 4, "")
+    
     
 if __name__ == "__main__":
   unittest.main(failfast=True)

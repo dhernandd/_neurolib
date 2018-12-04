@@ -17,9 +17,12 @@ import unittest
 import tensorflow as tf
 
 from neurolib.builders.sequential_builder import SequentialBuilder
-from neurolib.encoder.input import NormalInputNode
 
 # pylint: disable=bad-indentation, no-member, protected-access
+
+NUM_TESTS = 9
+run_up_to_test = 7
+tests_to_run = list(range(run_up_to_test))
 
 class SequentialModelBuilderTest(tf.test.TestCase):
   """
@@ -29,57 +32,54 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     """
     tf.reset_default_graph()
     
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(0 not in tests_to_run, "Skipping")
   def test_DeclareModel0(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
-    builder.addInputSequence(10, 10)
+    builder.addInputSequence(10)
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(1 not in tests_to_run, "Skipping")
   def test_DeclareModel1(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    builder.addInputSequence(10, 10)
-    builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
+    builder.addInputSequence(10)
+    builder.addEvolutionSequence(3, 2)
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(2 not in tests_to_run, "Skipping")
   def test_DeclareModel2(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    builder.addInputSequence(10, 10)
-    builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
+    builder.addInputSequence(10)
+    builder.addEvolutionSequence(3, 2)
     builder.addOutputSequence()
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(3 not in tests_to_run, "Skipping")
   def test_DeclareModel3(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
+    in1 = builder.addInputSequence(10)
+    enc1 = builder.addEvolutionSequence(3, 2)
     o1 = builder.addOutputSequence()
     
+    print("in1, enc1", in1, enc1)
     builder.addDirectedLink(in1, enc1, islot=1)
     builder.addDirectedLink(enc1, o1)
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(4 not in tests_to_run, "Skipping")
   def test_BuildModel1(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
+    in1 = builder.addInputSequence(10)
+    enc1 = builder.addEvolutionSequence(3, 2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=1)
@@ -87,17 +87,15 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     
     builder.build()
 
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(5 not in tests_to_run, "Skipping")
   def test_BuildModel2(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    i2 = builder.addInput(4, iclass=NormalInputNode)
-    in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2, init_states=[i1], num_islots=2)
-    enc2 = builder.addEvolutionSequence(4, init_states=[i2], num_islots=2)
+    in1 = builder.addInputSequence(10)
+    enc1 = builder.addEvolutionSequence(3, 2)
+    enc2 = builder.addEvolutionSequence(4, 2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=1)
@@ -106,21 +104,16 @@ class SequentialModelBuilderTest(tf.test.TestCase):
     
     builder.build()
     
-  @unittest.skipIf(False, "Skipping")
+  @unittest.skipIf(6 not in tests_to_run, "Skipping")
   def test_BuildModel3(self):
     """
     """
     builder = SequentialBuilder(max_steps=10, scope="Basic")
     
-    i1 = builder.addInput(2, iclass=NormalInputNode)
-    i2 = builder.addInput(2, iclass=NormalInputNode)
-    
-    in1 = builder.addInputSequence(10, 10)
-    enc1 = builder.addEvolutionSequence(2,
-                                        init_states=[i1,i2],
-                                        num_islots=3,
-                                        node_class='lstm')
-    enc2 = builder.addInnerSequence(4, num_islots=2)
+    in1 = builder.addInputSequence(10)
+    enc1 = builder.addEvolutionSequence([[3],[3]], 3,
+                                        ev_seq_class='lstm', cell_class='lstm')
+    enc2 = builder.addInnerSequence(4, num_inputs=2)
     o1 = builder.addOutputSequence()
     
     builder.addDirectedLink(in1, enc1, islot=2)

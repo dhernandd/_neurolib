@@ -17,8 +17,8 @@ import tensorflow as tf
 # from tensorflow.python.ops import rnn_cell_impl
 
 from neurolib.encoder.anode import ANode
-from neurolib.encoder.sequence import (BasicRNNEvolutionSequence, LSTMEvolutionSequence,
-                                       EvolutionSequence, CustomEvolutionSequence)
+from neurolib.encoder.evolution_sequence import (BasicRNNEvolutionSequence, 
+                LSTMEvolutionSequence, EvolutionSequence, CustomEvolutionSequence)
 from neurolib.encoder.custom import CustomNode
 # from neurolib.encoder.rnn import CustomRNN
 from neurolib.encoder.output import OutputNode
@@ -104,6 +104,7 @@ class SequentialBuilder(StaticBuilder):
                                        name=name,
                                        is_sequence=True,
                                        **dirs)
+    print("seq_builder: node_name", node_name)
     self.input_sequences[node_name] = self.input_nodes[node_name]
     
     return node_name
@@ -132,7 +133,7 @@ class SequentialBuilder(StaticBuilder):
                          **dirs)
   
   def addEvolutionSequence(self,
-                           num_features, 
+                           state_sizes, 
                            num_inputs,
 #                            init_states=None,
                            mode='forward',
@@ -146,7 +147,7 @@ class SequentialBuilder(StaticBuilder):
       ev_seq_class = sequence_dict[ev_seq_class]
 #     init_states = [self.nodes[node_name] for node_name in init_states]
     node = ev_seq_class(self,
-                        num_features,
+                        state_sizes,
       #                   init_states=init_states,
                         num_inputs=num_inputs,
                         name=name,

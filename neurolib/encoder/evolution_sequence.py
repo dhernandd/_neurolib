@@ -15,11 +15,10 @@
 # ==============================================================================
 from abc import abstractmethod
 
-import numpy as np
 import tensorflow as tf
 
 from neurolib.encoder.basic import InnerNode
-from neurolib.encoder import act_fn_dict, layers_dict, cell_dict
+from neurolib.encoder import cell_dict
 from neurolib.encoder.input import NormalInputNode
 from neurolib.encoder.seq_cells import CustomCell
 
@@ -27,18 +26,19 @@ from neurolib.encoder.seq_cells import CustomCell
 
 class EvolutionSequence(InnerNode):
   """
-  An EvolutionSequence represents a sequence of mappings, each with the
-  distinguishining feature that it takes the output of their predecessor as
-  input. This makes them appropriate in particular to represent the time
-  evolution of a code.
+  A sequential InnerNode with a Markov internal dynamics. 
+  
+  An EvolutionSequence is an InnerNode representing internally a sequence of
+  mappings, each taking the output of their predecessor as input. This makes
+  them appropriate to represent the evolution, possibly in time, of information, .
+  
   
   RNNs are children of EvolutionSequence.
   """
   num_expected_outputs = 1
   def __init__(self,
                builder,
-               state_size,
-#                init_states=None,
+               state_sizes,
                num_inputs=2,
                name=None,
                mode='forward'):
@@ -49,12 +49,9 @@ class EvolutionSequence(InnerNode):
                                             is_sequence=True)
     self.name = 'EvSeq_' + str(self.label) if name is None else name    
 
-    self.state_size = state_size
-    self.main_oshape = [self.batch_size, self.max_steps, state_size]
-    self._oslot_to_shape[0] = self.main_oshape
-    
-#     if init_states is None:
-#       raise ValueError("`init_states` must be provided") 
+    self.main_output_sizes = self.get_output_sizes(state_sizes)
+    self.main_oshapes = self.get_main_oshapes()
+    self._oslot_to_shape[0] = self.main_oshapes[0]
     
     self.free_oslots = list(range(self.num_expected_outputs))
 
@@ -63,7 +60,7 @@ class EvolutionSequence(InnerNode):
     self.num_expected_inputs = num_inputs
     
   @abstractmethod
-  def _build(self, islot_to_itensor):
+  def _build(self):
     """
     """
     raise NotImplementedError("Please implement me.")
@@ -73,14 +70,11 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
   """
   BasicRNNEvolutionSequence is the simplest possible EvolutionSequence. It is an
   evolution sequence characterized by a single latent state. In particular this
-  implies that a single initial state is passed.
-  
-  hose inputs are an external input tensor and the previous
-  state of the sequence, and whose output is the (i+1)th state.
+  implies that a single initial state 
   """
   def __init__(self,
                builder,
-               state_size,
+               state_sizes,
 #                init_states,
                num_inputs=2,
                name=None,
@@ -91,7 +85,7 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
     Initialize the BasicRNNEvolutionSequence
     """
     super(BasicRNNEvolutionSequence, self).__init__(builder,
-                                                    state_size,
+                                                    state_sizes,
 #                                                     init_states=init_states,
                                                     num_inputs=num_inputs,
                                                     name=name,
@@ -112,29 +106,29 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
                                     else cell_class) 
     
     self._update_default_directives(**dirs)
-
+    
+    osize = self.main_output_sizes[0][0]
     # Add the init_inode and the init_inode -> ev_seq edge
     if issubclass(cell_class, CustomCell): 
-      self.cell = cell_class(self.state_size, builder=self.builder)  #pylint: disable=not-callable
+      self.cell = cell_class(state_sizes, builder=self.builder)  #pylint: disable=not-callable
     else:
-      self.cell = cell_class(self.state_size)
+      self.cell = cell_class(osize)
     self._declare_init_state()
 
-    
   def _declare_init_state(self):
     """
     Declare the initial state of the Evolution Sequence.
     
-    Uses that the BasicRNNEvolutionSequence has only one evolution input
+    Requires that the BasicRNNEvolutionSequence has only one evolution input
     """
     builder = self.builder
-    
+    osize = self.main_output_sizes[0][0]
     try:
       self.init_inode = self.cell.get_init_states(ext_builder=builder)[0]
       self.init_inode = builder.nodes[self.init_inode]
       builder.addDirectedLink(self.init_inode, self, islot=0)
     except AttributeError:
-      self.init_inode = builder.addInput(self.state_size, iclass=NormalInputNode)
+      self.init_inode = builder.addInput(osize, iclass=NormalInputNode)
       builder.addDirectedLink(self.init_inode, self, islot=0)
       self.init_inode = builder.nodes[self.init_inode]
     
@@ -145,7 +139,7 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
     self.directives = {}
     self.directives.update(dirs)
         
-  def _build(self, islot_to_itensor=None):
+  def _build(self):
     """
     Build the Evolution Sequence
     """
@@ -162,8 +156,6 @@ class BasicRNNEvolutionSequence(EvolutionSequence):
       else:
         inputs_series = tf.concat(inputs_series, axis=-1)
         
-      print("inputs_series", inputs_series)
-      print("init_state", init_state)
       states_series, _ = tf.nn.dynamic_rnn(cell,
                                            inputs_series,
                                            initial_state=init_state)
@@ -178,28 +170,68 @@ class LSTMEvolutionSequence(EvolutionSequence):
   """
   def __init__(self,
                builder,
-               state_size,
-               init_states,
+               state_sizes,
+#                init_states,
                num_inputs=3,
                name=None,
+               cell_class='lstm',
                mode='forward',
                **dirs):
     """
     Initialize the LSTMEvolutionSequence
     """
     super(LSTMEvolutionSequence, self).__init__(builder,
-                                                state_size,
-                                                init_states=init_states,
+                                                state_sizes,
+#                                                 init_states=init_states,
                                                 num_inputs=num_inputs,
                                                 name=name,
                                                 mode=mode)
     
-    self.init_inode, self.init_hidden_state = init_states[0], init_states[1]
-    builder.addDirectedLink(self.init_inode, self, islot=0)
-    builder.addDirectedLink(self.init_hidden_state, self, islot=1)
-    
+#     self.init_inode, self.init_hidden_state = init_states[0], init_states[1]
+    self.cell_class = cell_class = (cell_dict[cell_class] if isinstance(cell_class, str) 
+                                    else cell_class) 
+    self.num_units = self.main_output_sizes[0][0]
     self._update_default_directives(**dirs)
+    
+    # Add the init_inode and the init_inode -> ev_seq edge
+    if issubclass(cell_class, CustomCell):
+      self.is_custom = True
+      self.cell = cell_class(state_sizes, builder=self.builder)  #pylint: disable=not-callable
+    else:
+      self.is_custom = False
+      self.cell = cell_class(self.num_units)
+    
+    self._declare_init_state()
 
+#     builder.addDirectedLink(self.init_inode, self, islot=0)
+#     builder.addDirectedLink(self.init_hidden_state, self, islot=1)
+    
+  def _declare_init_state(self):
+    """
+    Declare the initial state of the Evolution Sequence.
+    
+    Uses that the BasicRNNEvolutionSequence has only one evolution input
+    """
+    builder = self.builder
+    
+    if self.is_custom:
+      self.init_inodes = self.cell.get_init_states(ext_builder=builder)[0]
+      
+#     try:
+#       self.init_inode = builder.nodes[self.init_inode]
+      for islot, init_node in self.init_inodes.items():
+        builder.addDirectedLink(init_node, self, islot=islot)
+#     except AttributeError:
+    else:
+      hidden_dim = self.main_output_sizes[1][0]
+      init_node0_name = builder.addInput(self.num_units, iclass=NormalInputNode)
+      init_node1_name = builder.addInput(hidden_dim, iclass=NormalInputNode)
+      builder.addDirectedLink(init_node0_name, self, islot=0)
+      builder.addDirectedLink(init_node1_name, self, islot=1)
+      
+      self.init_nodes = [builder.nodes[init_node0_name],
+                         builder.nodes[init_node1_name]]
+      
   def _update_default_directives(self, **dirs):
     """
     Update the default directives
@@ -224,7 +256,7 @@ class LSTMEvolutionSequence(EvolutionSequence):
       inputs_series = tf.concat(inputs_series, axis=-1)
     
     with tf.variable_scope(self.name, reuse=tf.AUTO_REUSE):
-      cell = tf.nn.rnn_cell.BasicLSTMCell(self.state_size,
+      cell = tf.nn.rnn_cell.BasicLSTMCell(self.num_units,
                                           state_is_tuple=True)  #pylint: disable=not-callable
       
       print("inputs_series", inputs_series)

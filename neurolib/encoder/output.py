@@ -21,16 +21,14 @@ from neurolib.encoder.anode import ANode
 
 class OutputNode(ANode):
   """
-  An OutputNode represents a sink of information in the Model graph (MG).
+  An ANode representing a sink of information in the Model Graph (MG).
+  
   OutputNodes are mainly useful for model bending (training). A cost function
-  for instance depends only on the inputs of OutputNodes.
+  for instance, should depends only on the tensors flowing into OutputNodes (inputs).
     
   OutputNodes have no outputs, that is, information is "destroyed" at the
   OutputNode. Assignment to self.num_declared_outputs is therefore forbidden.
-  
-  OutputNodes have a single input assigned to islot = 0. Every output node maps
-  to a single tensor, its input. These tensors can then be invoked by the
-  OutputNode name.
+  OutputNodes have a single input assigned to islot = 0. 
   
   Class attributes:
     num_expected_inputs = 1
@@ -46,23 +44,27 @@ class OutputNode(ANode):
     Initialize the OutputNode
     
     Args:
-      label (int): A unique integer identifier for the node.
-      
+      builder (Builder): An instance of Builder necessary to declare the
+          secondary output nodes.
+
       name (str): A unique name for this node.
     """
+    super(OutputNode, self).__init__()
+
     self.builder = builder
     self.label = builder.num_nodes
     builder.num_nodes += 1
     
-    super(OutputNode, self).__init__()
     self.name = "Out_" + str(self.label) if name is None else name
+    
+    self.free_islots = list(range(self.num_expected_inputs))
     
   def _build(self):
     """
     Build the OutputNode.
     
-    Specifically, rename the input tensor to the name of the node so that it can
-    be easily accessed.
+    Renames the input tensor to the name of the node so that it can be easily
+    accessed.
     
     NOTE: The _islot_to_itensor attribute of this node has been updated by the
     Builder object during processing of this OutputNode's parent by the

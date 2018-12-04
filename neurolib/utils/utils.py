@@ -69,7 +69,7 @@ def basic_concatenation(_input):
   """
   try:
     _input = tf.concat(_input, axis=-1)
-  except ValueError:
+  except TypeError:
     itensors = list(zip(*sorted(_input.items())))[1] # mae sure inputs are ordered
     _input = tf.concat(itensors, axis=-1)
   

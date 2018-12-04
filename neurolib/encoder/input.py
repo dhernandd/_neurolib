@@ -30,11 +30,11 @@ class InputNode(ANode):
   
   An InputNode represents a source of information. InputNodes are used to
   represent user-provided data to be fed to the MG by means of a tensorflow
-  Placeholder. InputNodes represent as well any random input to the MG.
+  Placeholder. InputNodes represent as well random inputs to the MG.
   
-  InputNodes have no inputs, that is, InputNodes are sources, information is
-  "created" at the InputNode. Assignment to self.num_inputs is therefore
-  forbidden.
+  InputNodes have no inputs. In other words, InputNodes are sources, information
+  is "created" at the InputNode. Incoming links to the InputNode and assignment
+  to self.num_inputs are therefore forbidden.
   
   InputNodes have one main output and possibly secondary ones. The latter are
   used most often to output the relevant statistics of a random input. In that
@@ -45,25 +45,20 @@ class InputNode(ANode):
   
   def __init__(self,
                builder,
-               state_size,
+               state_sizes,
                is_sequence=False):
     """
     Initialize the InputNode
     
     Args:
-      label (int): A unique integer identifier for the node. 
+      builder (Builder): An instance of Builder necessary to declare the
+          secondary output nodes.
       
-      state_size (int or list of ints): The shape of the main output
+      state_sizes (int or list of ints): The shape of the main output
           code. This excludes the 0th dimension - batch size - and the 1st
           dimension when the data is a sequence - number of steps.
       
-      name (str): A unique name that identifies this node.
-      
-      batch_size (int): The output batch size. Set to None by default
-          (unspecified batch_size)
-          
-      builder (Builder): An instance of Builder necessary to declare the
-          secondary output nodes.
+      is_sequence (bool): Is the input a sequence?
     """
     super(InputNode, self).__init__()
 
@@ -71,19 +66,17 @@ class InputNode(ANode):
     self.label = builder.num_nodes
     builder.num_nodes += 1
   
-    self.state_size = state_size
+    self.main_output_sizes = self.get_output_sizes(state_sizes)
     self.batch_size = builder.batch_size
     self.max_steps = builder.max_steps if hasattr(builder, 'max_steps') else None
     self.is_sequence = is_sequence
 
     # Deal with sequences
-    self.main_oshape, self.D = self.get_main_oshape(self.batch_size,
-                                                    self.max_steps,
-                                                    state_size)
-    self._oslot_to_shape[0] = self.main_oshape
+    self.main_oshapes, self.D = self.get_main_oshapes()
+    self._oslot_to_shape[0] = self.main_oshapes[0]
     
-    if any([i is None for i in self.main_oshape]):
-      self.dummy_ph = tf.placeholder(tf.float32, self.main_oshape, 'dummy')
+#     if any([i is None for i in self.main_oshapes]):
+#       self.dummy_ph = tf.placeholder(tf.float32, self.main_oshape, 'dummy')
   
   @abstractmethod
   def _build(self):
@@ -95,11 +88,12 @@ class InputNode(ANode):
 
 class PlaceholderInputNode(InputNode):
   """
-  The PlaceholderInputNode represents data to be fed to the Model Graph,
-  for example, for training or sampling purposes.
+  An InputNode to represent data to be fed to the Model Graph (MG).
   
-  PlaceholderInputNodes have a single output slot that maps to a tensorflow
-  Placeholder.
+  Data fed to the MG, for instance for training or sampling purposes is
+  represented by a PlaceholdeInputNode. On build, a tensorflow placeholder is
+  created and added to the MG. PlaceholderInputNodes have a single output slot
+  that maps to a tensorflow Placeholder.
  
   Class attributes:
     num_expected_outputs = 1
@@ -109,7 +103,7 @@ class PlaceholderInputNode(InputNode):
   
   def __init__(self,
                builder,
-               state_size,
+               state_sizes,
                is_sequence=False,
                name=None,
                **dirs):
@@ -117,25 +111,30 @@ class PlaceholderInputNode(InputNode):
     Initialize the PlaceholderInputNode
     
     Args:
-      label (int): A unique integer identifier for the node.:
-      main_oshape (int or list of ints): The shape of the output encoding.
-          This excludes the 0th dimension - batch size - and the 1st dimension
-          when the data is a sequence - number of steps.
-      name (str): A unique name for this node.
-      batch_size (int): The output batch size. Set to None by default
-          (unspecified batch_size)
       builder (Builder): An instance of Builder necessary to declare the
           secondary output nodes. 
+
+      state_sizes (int or list of ints): The shape of the main output
+          code. This excludes the 0th dimension - batch size - and the 1st
+          dimension when the data is a sequence - number of steps.
+
+      is_sequence (bool): Is the input a sequence?
+      
+      name (str): A unique name for this node.
+
       dirs (dict): A set of user specified directives for constructing this
           node.
     """
     super(PlaceholderInputNode, self).__init__(builder,
-                                               state_size,
+                                               state_sizes,
                                                is_sequence=is_sequence)
+
+    print("name", name)
     self.name = name or "In_" + str(self.label)
 
-    self._update_default_directives(**dirs)
     self.free_oslots = list(range(self.num_expected_outputs))
+
+    self._update_default_directives(**dirs)
 
   def _update_default_directives(self, **dirs):
     """
@@ -150,24 +149,29 @@ class PlaceholderInputNode(InputNode):
     """
     Build a PlaceholderInputNode.
     
-    Assigns a new placeholder to _oslot_to_otensor[0]
+    Assigns a new tensorflow placeholder to _oslot_to_otensor[0]
     """
     name = self.name
-    out_shape = self.main_oshape
-    self._oslot_to_otensor[0] = tf.placeholder(self.directives['data_type'],
-                                               shape=out_shape,
-                                               name=name)
-
+    out_shape = self.main_oshapes
+    for oslot, out_shape in enumerate(self.main_oshapes):
+      self._oslot_to_otensor[oslot] = tf.placeholder(self.directives['data_type'],
+                                                     shape=out_shape,
+                                                     name=name)
     self._is_built = True
 
 
 class NormalInputNode(InputNode):
   """
-  A NormalInputNode represents a random input to the Model graph (MG) drawn from
-  a normal distribution. 
+  An InputNode representing a random input to the Model Graph (MG) drawn from a
+  normal distribution.
   
-  The main output (oslot=0) of a NormalInputNode is a sample. The statistics
-  (possibly trainable) of the distribution are the secondary outputs.
+  Initial values for the statistics of a NormalInputNode (mean and stddev) can
+  be passed to the node as directives. They may be specified as trainable or
+  not. The main output (oslot=0) of a NormalInputNode is a sample from the.
+  oslots 1 and 2 are reserved for the mean and stddev respectively.
+  
+  Instances of NormalInputNode have a `dist` attribute which is a tensorflow
+  distribution. Sampling from the node is delegated to `self.dist.sample(..)`.
   
   Class attributes:
     num_expected_outputs = 3
@@ -177,34 +181,36 @@ class NormalInputNode(InputNode):
 
   def __init__(self,
                builder,
-               state_size,
+               state_sizes,
                is_sequence=False,
                name=None,
                **dirs):
     """
-    Initialize the NormalInputNode. A builder object argument is MANDATORY in
-    order to declare the secondary outputs.
-    
+    Initialize the NormalInputNode
+        
     Args:
-      label (int): A unique integer identifier for the node.
-      num (int or list of ints): The shape of the output encoding.
-          This excludes the 0th dimension - batch size - and the 1st dimension
-          when the data is a sequence - number of steps.
-      name (str): A unique name for this node.
-      batch_size (int): The output batch size. Set to None by default
-          (unspecified batch_size)
       builder (Builder): An instance of Builder necessary to declare the
           secondary output nodes. 
+
+      state_sizes (int or list of ints): The shape of the main output
+          code. This excludes the 0th dimension - batch size - and the 1st
+          dimension when the data is a sequence - number of steps.
+          
+      is_sequence (bool): Is the input a sequence?
+
+      name (str): A unique name for this node.
+
       dirs (dict): A set of user specified directives for constructing this
           node.
     """
     super(NormalInputNode, self).__init__(builder,
-                                          state_size,
+                                          state_sizes,
                                           is_sequence=is_sequence)
     self.name = "Normal_" + str(self.label) if name is None else name
 
-    self._update_default_directives(**dirs)
     self.free_oslots = list(range(self.num_expected_outputs))
+
+    self._update_default_directives(**dirs)
     
     self._declare_secondary_outputs()
     self.dist = None
@@ -212,23 +218,23 @@ class NormalInputNode(InputNode):
   def _update_default_directives(self, **dirs):
     """
     Update the node directives
-    
-    TODO: This is only valid for 1D state_size
     """
-    if self.D == 1:
-#       oshape = self.main_oshape[-1:]
-      oshape = self.main_oshape[1:]
+    if self.D[0] == 1:
+      oshape = self.main_oshapes[0][-1:]
+      osize = oshape[0]
+#       oshape = self.main_oshapes[0][-1:]
     else:
-      raise NotImplementedError("")
+      raise NotImplementedError("main output with rank > 1 is not implemented "
+                                "for the Normal Input Node. ")
     
     if self.is_sequence and self.max_steps is None:
       mean_init = tf.zeros(oshape)
-      scale = tf.eye(self.state_size)
+      scale = tf.eye(osize)
       scale_init = tf.linalg.LinearOperatorFullMatrix(scale)
     else:
       dummy = tf.placeholder(tf.float32, oshape, 'dummy')
       mean_init = tf.zeros_like(dummy)
-      scale = tf.eye(self.state_size)
+      scale = tf.eye(osize)
       scale_init = tf.linalg.LinearOperatorFullMatrix(scale)
 
     self.directives = {'output_mean_name' : self.name + '_mean',
@@ -241,7 +247,8 @@ class NormalInputNode(InputNode):
     """
     Declare the statistics of the normal as secondary outputs. 
     """
-    oshape = self.main_oshape[1:]
+    oshape = self.main_oshapes[0][-1:]
+    
     self._oslot_to_shape[1] = oshape # mean oslot
     o1 = self.builder.addOutput(name=self.directives['output_mean_name'])
     self.builder.addDirectedLink(self, o1, oslot=1)
@@ -252,21 +259,25 @@ class NormalInputNode(InputNode):
   
   def _get_sample(self):
     """
+    Get a sample from the distribution.
     """
     return self.dist.sample(sample_shape=self.batch_size)
   
   def __call__(self):
     """
+    Return a sample from the distribution
     """
     return self._get_sample()
   
   def _build(self):
     """
-    Builds a NormalInputNode.
+    Build a NormalInputNode.
     
-    Assigns a sample from self.dist to _oslot_to_otensor[0] 
-    Assigns the mean from self.dist to _oslot_to_otensor[1]
-    Assigns a cholesky decomposition of the covariance from self.dist to
+    Assign a sample from self.dist to _oslot_to_otensor[0]
+     
+    Assign the mean from self.dist to _oslot_to_otensor[1]
+    
+    Assign the cholesky decomposition of the covariance from self.dist to
     _oslot_to_otensor[2]
     """
     mean = self.directives['mean_init']
@@ -277,15 +288,12 @@ class NormalInputNode(InputNode):
     dummy = tf.placeholder(tf.float32, [self.batch_size], 'dummy')
     self._oslot_to_otensor[0] = dist.sample(sample_shape=self.batch_size,
                                             name=self.name)
-#     assert tf.shape(self._oslot_to_otensor[0]).as_list() == self._oslot_to_shape[0] 
     assert self._oslot_to_otensor[0].shape.as_list() == self._oslot_to_shape[0] 
     
     self._oslot_to_otensor[1] = dist.loc
-#     assert tf.shape(self._oslot_to_otensor[1]).as_list() == self._oslot_to_shape[1]
     assert self._oslot_to_otensor[1].shape.as_list() == self._oslot_to_shape[1]
     
     self._oslot_to_otensor[2] = dist.scale.to_dense()
-#     assert tf.shape(self._oslot_to_otensor[2]).as_list() == self._oslot_to_shape[2]
     assert self._oslot_to_otensor[2].shape.as_list() == self._oslot_to_shape[2]
 
     self._is_built = True

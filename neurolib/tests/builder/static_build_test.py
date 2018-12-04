@@ -17,11 +17,12 @@ import unittest
 import tensorflow as tf
 
 from neurolib.builders.static_builder import StaticBuilder
+from neurolib.encoder.normal import NormalTriLNode
 
 # pylint: disable=bad-indentation, no-member, protected-access
 
-NUM_TESTS = 9
-run_up_to_test = 8
+NUM_TESTS = 10
+run_up_to_test = 10
 tests_to_run = list(range(run_up_to_test))
 
 class StaticModelBuilderBasicTest(tf.test.TestCase):
@@ -63,13 +64,13 @@ class StaticModelBuilderBasicTest(tf.test.TestCase):
     try:
       builder = StaticBuilder(scope='Build0')
       builder.addInput(state_size=10, name="In")
-      enc_name = builder.addInner(state_size=3, name="In")
+      enc_name = builder.addInner(state_sizes=3, name="In")
     except AttributeError:
       print("\nCAUGHT! (AttributeError exception) \n"
             "Trying to assign the same name to two nodes!")
       builder = StaticBuilder(scope='Build0')
       builder.addInput(state_size=10, name="In")
-      enc_name = builder.addInner(state_size=3, name="Det")
+      enc_name = builder.addInner(state_sizes=3, name="Det")
 
     enc1 = builder.nodes[enc_name]
     print('\nNode keys in builder:', list(builder.nodes.keys()))
@@ -216,6 +217,52 @@ class StaticModelBuilderBasicTest(tf.test.TestCase):
     
     builder.build()
 
+  @unittest.skipIf(8 not in tests_to_run, "Skipping")
+  def test_BuildModel4(self):
+    """
+    Test building the simplest stochastic model possible.
+    """
+    print("\nTest 8: Building a Model with a Stochastic Node")
+    builder = StaticBuilder(scope="BasicNormal")
+    in_name = builder.addInput(10)
+    enc_name = builder.addInner(3,
+                                node_class=NormalTriLNode)
+    out_name = builder.addOutput()
+    builder.addDirectedLink(in_name, enc_name)
+    builder.addDirectedLink(enc_name, out_name)
+        
+    builder.build()
+    inn, enc, out = ( builder.nodes[in_name], builder.nodes[enc_name],
+                      builder.nodes[out_name] )
+    self.assertEqual(inn._oslot_to_otensor[0].shape.as_list()[-1],
+                     enc._islot_to_itensor[0].shape.as_list()[-1], 
+                     "The input tensors have not been assigned correctly")
+    self.assertEqual(enc._oslot_to_otensor[0].shape.as_list()[-1],
+                     out._islot_to_itensor[0].shape.as_list()[-1], 
+                     "The input tensors have not been assigned correctly")
+    
+  @unittest.skipIf(9 not in tests_to_run, "Skipping")
+  def test_BuildModel5(self):
+    """
+    Try to break it, the algorithm... !! Guess not mdrfkr.
+    """
+    print("\nTest 7: Building a more complicated Model")
+    builder = StaticBuilder("BreakIt")
+    in1 = builder.addInput(10)
+    in2 = builder.addInput(20)
+    enc1 = builder.addInner(3,
+                            node_class=NormalTriLNode)
+    enc2 = builder.addInner(5, num_inputs=2)
+    out1 = builder.addOutput()
+    out2 = builder.addOutput()
+    
+    builder.addDirectedLink(in1, enc1)
+    builder.addDirectedLink(in2, enc2, islot=0)
+    builder.addDirectedLink(enc1, enc2, islot=1)
+    builder.addDirectedLink(enc1, out1)
+    builder.addDirectedLink(enc2, out2)
+    
+    builder.build()
     
 if __name__ == "__main__":
   unittest.main(failfast=True)

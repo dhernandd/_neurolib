@@ -14,7 +14,6 @@
 #
 # ==============================================================================
 import abc
-from abc import abstractmethod
 from bidict import bidict
 
 # pylint: disable=bad-indentation, no-member, protected-access
@@ -65,7 +64,7 @@ class ANode(abc.ABC):
     """
     Initialize an ANode
         
-    TODO: Should the client should be able to pass a tensorflow op directly? In
+    TODO: Should the client be able to pass a tensorflow op directly? In
     that case, ANode could act as a simple wrapper that returns the input and
     the output.
     """
@@ -110,7 +109,7 @@ class ANode(abc.ABC):
     """
     Return the number of declared outputs.
     
-    Useful for cheks and debugging. This number should never change after a node
+    Useful for checks and debugging. This number should never change after a node
     is built.
     """
     return self._num_declared_outputs
@@ -126,26 +125,42 @@ class ANode(abc.ABC):
                                                            self.num_expected_outputs))
     self._num_declared_outputs = value
   
-  def get_main_oshape(self, bsz, mx_stps, ssz):
+  @staticmethod
+  def get_output_sizes(state_sizes):
     """
-    Get the main output shape for this ANode
+    Get a list of output sizes corresponding to each oslot
     """
-    main_oshape = [bsz, mx_stps] if self.is_sequence else [bsz]
+    if isinstance(state_sizes, int):
+      state_sizes = [[state_sizes]]
+    elif isinstance(state_sizes, list):
+      if not all([isinstance(size, list) for size in state_sizes]):
+        raise TypeError("`state_sizes` argument must be an int of a list of lists "
+                        "of int")
+    return state_sizes
+    
+  def get_main_oshapes(self):
+    """
+    Get the main output shapes for this ANode    
+    """
+    bsz = self.batch_size
+    mx_stps = self.max_steps
+    ssz = self.main_output_sizes
+    main_oshapes = [[bsz, mx_stps]]*len(ssz) if self.is_sequence else [[bsz]]*len(ssz)
+    D = []
     try: # quack!
-      main_oshape.extend(ssz)
-      D = len(ssz)
+      for oslot, osize in enumerate(ssz):
+        main_oshapes[oslot].extend(osize)
+        D.append(len(osize))
     except TypeError:
-      if isinstance(ssz, int):
-        main_oshape += [ssz]
-        D = 1
-    except:
-      print("Failed to define `main_oshape`")
-      raise
-    return main_oshape, D
+      raise TypeError("Failed to define `main_oshapes`")
+    return main_oshapes, D
     
   def get_islot_shape(self, islot=0):
     """
     Return the incoming shape corresponding to this islot.
+    
+    Args:
+        islo
     """
     return self._oslot_to_shape[islot]
 
@@ -183,7 +198,7 @@ class ANode(abc.ABC):
     """
     """
     pass
-
+  
   def update_when_linked_as_node2(self):
     """
     """

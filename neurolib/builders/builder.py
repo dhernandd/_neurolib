@@ -60,7 +60,7 @@ class Builder(abc.ABC):
 
   @check_name
   def addInner(self,
-               state_size,
+               state_sizes,
                num_inputs=1,
                node_class=DeterministicNNNode,
                is_sequence=False,
@@ -78,7 +78,7 @@ class Builder(abc.ABC):
     if isinstance(node_class, str):
       node_class = innernode_dict[node_class]
     enc_node = node_class(self,
-                          state_size,
+                          state_sizes,
                           num_inputs=num_inputs,
                           is_sequence=is_sequence,
                           name=name,
